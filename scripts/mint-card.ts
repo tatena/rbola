@@ -32,6 +32,16 @@ console.log(`mint cost: ${Number(before - after) / 1e9} SOL`);
 const sig58 = base58.deserialize(signature)[0];
 console.log("tx:", `https://explorer.solana.com/tx/${sig58}?cluster=devnet`);
 
-const leaf = await parseLeafFromMintV2Transaction(umi, signature);
+// the node needs a moment to index the tx before it can be parsed
+let leaf;
+for (let attempt = 0; ; attempt++) {
+  try {
+    leaf = await parseLeafFromMintV2Transaction(umi, signature);
+    break;
+  } catch (e) {
+    if (attempt >= 5) throw e;
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+}
 console.log("asset id:", leaf.id);
 console.log("owner:", FOUNDER_WALLET);
