@@ -1,0 +1,24 @@
+# dependencies
+node_modules/
+
+# builds
+.next/
+out/
+dist/
+target/
+
+# env & secrets
+.env
+.env.*
+!.env.example
+
+# Claude config (never committed)
+CLAUDE.local.md
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# logs
+*.log
