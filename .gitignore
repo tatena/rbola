@@ -13,6 +13,7 @@ target/
 !.env.example
 
 # Claude config (never committed)
+CLAUDE.md
 CLAUDE.local.md
 .claude/
 
