@@ -21,7 +21,9 @@ export default function CameraSpike() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  const [cameraOn, setCameraOn] = useState(false);
+  const [camStatus, setCamStatus] = useState<
+    "idle" | "requesting" | "streaming" | "error"
+  >("idle");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [streamRes, setStreamRes] = useState<string | null>(null);
   const [shot, setShot] = useState<Shot | null>(null);
@@ -41,7 +43,11 @@ export default function CameraSpike() {
 
   async function startCamera() {
     setCameraError(null);
+    setCamStatus("requesting");
     try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("mediaDevices.getUserMedia not available");
+      }
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
@@ -53,11 +59,14 @@ export default function CameraSpike() {
       streamRef.current = stream;
       const video = videoRef.current!;
       video.srcObject = stream;
-      await video.play();
+      // no await — iOS can leave play() pending; the autoplay attribute
+      // takes over once metadata loads
+      video.play().catch(() => {});
       const s = stream.getVideoTracks()[0].getSettings();
       setStreamRes(`${s.width}×${s.height}`);
-      setCameraOn(true);
+      setCamStatus("streaming");
     } catch (e) {
+      setCamStatus("error");
       setCameraError(e instanceof Error ? `${e.name}: ${e.message}` : String(e));
     }
   }
@@ -130,14 +139,17 @@ export default function CameraSpike() {
         CAMERA SPIKE
       </h1>
 
+
       <section className="flex flex-col gap-2">
+        {/* always in the DOM and visible — iOS won't play into a display:none video */}
         <video
           ref={videoRef}
           playsInline
           muted
           autoPlay
-          className={`w-full rounded-lg bg-black ${cameraOn ? "" : "hidden"}`}
+          className="min-h-24 w-full rounded-lg bg-black"
         />
+        <p className="text-xs text-neutral-500">camera status: {camStatus}</p>
         {streamRes && (
           <p className="text-sm">
             stream resolution: <b>{streamRes}</b>
@@ -149,12 +161,12 @@ export default function CameraSpike() {
           </p>
         )}
         <div className="flex gap-2">
-          {!cameraOn ? (
+          {camStatus !== "streaming" ? (
             <button
               onClick={startCamera}
               className="flex-1 rounded-lg bg-[#f0a500] p-3 font-bold text-black"
             >
-              Start camera
+              {camStatus === "requesting" ? "Requesting…" : "Start camera"}
             </button>
           ) : (
             <button

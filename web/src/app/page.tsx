@@ -8,6 +8,12 @@ export default function Home() {
       <p className="mt-6 text-sm uppercase tracking-widest text-neutral-600">
         early development
       </p>
+      <a
+        href="/spike/camera"
+        className="mt-10 rounded-lg border border-neutral-700 px-6 py-3 text-sm tracking-widest text-neutral-400"
+      >
+        camera spike →
+      </a>
     </main>
   );
 }
