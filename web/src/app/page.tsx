@@ -14,6 +14,12 @@ export default function Home() {
       >
         camera spike →
       </a>
+      <a
+        href="/spike/wallet"
+        className="mt-2 rounded-lg border border-neutral-700 px-6 py-3 text-sm tracking-widest text-neutral-400"
+      >
+        wallet spike →
+      </a>
     </main>
   );
 }
