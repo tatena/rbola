@@ -12,6 +12,7 @@ target/
 .env.*
 !.env.example
 scripts/.keys/
+web/public/catches/
 
 # Claude config (never committed)
 CLAUDE.md

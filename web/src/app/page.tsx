@@ -9,8 +9,20 @@ export default function Home() {
         early development
       </p>
       <a
+        href="/spike/catch"
+        className="mt-10 rounded-lg bg-[#f0a500] px-6 py-3 text-sm font-bold tracking-widest text-black"
+      >
+        CATCH →
+      </a>
+      <a
+        href="/spike/garage"
+        className="mt-2 rounded-lg border border-neutral-700 px-6 py-3 text-sm tracking-widest text-neutral-400"
+      >
+        garage →
+      </a>
+      <a
         href="/spike/camera"
-        className="mt-10 rounded-lg border border-neutral-700 px-6 py-3 text-sm tracking-widest text-neutral-400"
+        className="mt-2 rounded-lg border border-neutral-700 px-6 py-3 text-sm tracking-widest text-neutral-400"
       >
         camera spike →
       </a>
