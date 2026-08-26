@@ -88,36 +88,33 @@ export default function CatchPage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 p-4">
-      <header className="flex items-baseline justify-between">
-        <h1 className="text-lg font-bold tracking-[0.2em] text-accent">
-          CATCH
-        </h1>
-        <a
-          href="/spike/garage"
-          className="p-2 text-sm text-neutral-400 transition-colors duration-100 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-        >
-          garage →
-        </a>
-      </header>
-
+    <main className="flex flex-1 flex-col gap-4 px-4">
       {(phase === "camera" || !photo) && (
-        <section className="flex flex-col gap-3">
+        <section className="relative flex flex-1 flex-col">
           <video
             ref={videoRef}
             playsInline
             muted
             autoPlay
-            className="aspect-[3/4] w-full rounded-xl bg-black object-cover"
+            className="min-h-[55dvh] w-full flex-1 rounded-2xl bg-black object-cover"
           />
           {!cameraOn ? (
-            <button onClick={startCamera} className={primaryBtn}>
-              Start camera
-            </button>
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+              <button onClick={startCamera} className={primaryBtn}>
+                Start camera
+              </button>
+              <p className="text-xs text-neutral-500">
+                see a cool car? catch it.
+              </p>
+            </div>
           ) : (
-            <button onClick={snap} className={primaryBtn}>
-              SNAP
-            </button>
+            <div className="absolute inset-x-0 bottom-6 flex justify-center">
+              <button
+                onClick={snap}
+                aria-label="Take photo"
+                className="h-20 w-20 rounded-full border-4 border-white/80 bg-accent transition-transform duration-100 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              />
+            </div>
           )}
         </section>
       )}
@@ -128,7 +125,7 @@ export default function CatchPage() {
           <img
             src={photo}
             alt="your catch"
-            className="aspect-[3/4] w-full rounded-xl object-cover"
+            className="aspect-[3/4] w-full rounded-2xl object-cover"
           />
           <div className="flex flex-col gap-1">
             <label
@@ -181,7 +178,7 @@ export default function CatchPage() {
       )}
 
       {phase === "caught" && (
-        <section className="flex flex-col items-center gap-3 text-center">
+        <section className="flex flex-col items-center gap-3 pt-4 text-center">
           <div className="stamp-in">
             <p className="text-6xl font-black tracking-[0.15em] text-accent">
               RBOLA!
@@ -195,7 +192,7 @@ export default function CatchPage() {
             <img
               src={photo}
               alt={`your catch: ${name}`}
-              className="w-2/3 rounded-xl border border-line"
+              className="w-2/3 rounded-2xl border border-line"
             />
           )}
           <p className="text-neutral-300">
@@ -205,7 +202,7 @@ export default function CatchPage() {
             {assetId}
           </p>
           <div className="mt-2 flex w-full max-w-xs flex-col gap-2">
-            <a href="/spike/garage" className={primaryBtn}>
+            <a href="/garage" className={`${primaryBtn} text-center`}>
               Open garage
             </a>
             <button

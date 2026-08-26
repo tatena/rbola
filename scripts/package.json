@@ -5,9 +5,11 @@
   "scripts": {
     "create-tree": "tsx create-tree.ts",
     "mint-card": "tsx mint-card.ts",
-    "read-garage": "tsx read-garage.ts"
+    "read-garage": "tsx read-garage.ts",
+    "recognize": "tsx recognize.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.121.0",
     "@metaplex-foundation/mpl-bubblegum": "^5.1.0",
     "@metaplex-foundation/umi": "^1.2.0",
     "@metaplex-foundation/umi-bundle-defaults": "^1.2.0",

@@ -18,6 +18,7 @@ export default function GaragePage() {
 
   function load() {
     setError(null);
+    setCards(null);
     fetch("/api/garage")
       .then((r) => r.json())
       .then((j) => {
@@ -29,18 +30,21 @@ export default function GaragePage() {
   useEffect(load, []);
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 p-4">
-      <header className="flex items-baseline justify-between">
-        <h1 className="text-lg font-bold tracking-[0.2em] text-accent">
-          GARAGE
+    <main className="flex flex-1 flex-col gap-4 px-4">
+      <div className="flex items-baseline justify-between">
+        <h1 className="text-sm font-bold uppercase tracking-[0.25em] text-neutral-400">
+          Garage
+          {cards && (
+            <span className="ml-2 text-accent">{cards.length}</span>
+          )}
         </h1>
-        <a
-          href="/"
-          className="p-2 text-sm text-neutral-400 transition-colors duration-100 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        <button
+          onClick={load}
+          className="p-2 text-xs tracking-widest text-neutral-500 transition-colors duration-100 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
-          home
-        </a>
-      </header>
+          refresh
+        </button>
+      </div>
 
       {error && (
         <div className="flex flex-col gap-2">
@@ -73,54 +77,46 @@ export default function GaragePage() {
       {cards && cards.length === 0 && (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
           <p className="text-neutral-400">Your garage is empty.</p>
-          <a href="/spike/catch" className={primaryBtn}>
+          <a href="/catch" className={primaryBtn}>
             Catch your first car
           </a>
         </div>
       )}
 
       {cards && cards.length > 0 && (
-        <>
-          <p className="text-xs uppercase tracking-widest text-neutral-500">
-            {cards.length} {cards.length === 1 ? "card" : "cards"}
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            {cards.map((c) => (
-              <div
-                key={c.assetId}
-                className="flex flex-col overflow-hidden rounded-xl border border-line bg-surface-raised"
-              >
-                {c.photo ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={c.photo}
-                    alt={c.name}
-                    className="aspect-square w-full object-cover"
-                  />
-                ) : (
-                  <div
-                    className="flex aspect-square w-full items-center justify-center bg-background text-3xl"
-                    aria-hidden
-                  >
-                    🏎
-                  </div>
-                )}
-                <div className="flex flex-col gap-1 p-3">
-                  <p className="text-sm font-bold leading-tight">{c.name}</p>
-                  <p
-                    className="truncate font-mono text-[10px] text-neutral-500"
-                    title={c.assetId}
-                  >
-                    {c.assetId.slice(0, 4)}…{c.assetId.slice(-4)}
-                  </p>
+        <div className="grid grid-cols-2 gap-3">
+          {cards.map((c) => (
+            <div
+              key={c.assetId}
+              className="flex flex-col overflow-hidden rounded-xl border border-line bg-surface-raised"
+            >
+              {c.photo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={c.photo}
+                  alt={c.name}
+                  className="aspect-square w-full object-cover"
+                />
+              ) : (
+                <div
+                  className="flex aspect-square w-full items-center justify-center bg-background text-3xl"
+                  aria-hidden
+                >
+                  🏎
                 </div>
+              )}
+              <div className="flex flex-col gap-1 p-3">
+                <p className="text-sm font-bold leading-tight">{c.name}</p>
+                <p
+                  className="truncate font-mono text-[10px] text-neutral-500"
+                  title={c.assetId}
+                >
+                  {c.assetId.slice(0, 4)}…{c.assetId.slice(-4)}
+                </p>
               </div>
-            ))}
-          </div>
-          <a href="/spike/catch" className={`${primaryBtn} mt-auto`}>
-            Catch another
-          </a>
-        </>
+            </div>
+          ))}
+        </div>
       )}
     </main>
   );

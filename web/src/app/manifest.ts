@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "RBOLA",
     description:
       "Photograph real cars in the street, own them as verified cards, and race them.",
-    start_url: "/",
+    start_url: "/catch",
     display: "standalone",
     background_color: "#16181c",
     theme_color: "#16181c",
