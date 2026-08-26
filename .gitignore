@@ -11,6 +11,7 @@ target/
 .env
 .env.*
 !.env.example
+scripts/.keys/
 
 # Claude config (never committed)
 CLAUDE.md

@@ -1,0 +1,21 @@
+{
+  "name": "rbola-scripts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "create-tree": "tsx create-tree.ts",
+    "mint-card": "tsx mint-card.ts",
+    "read-garage": "tsx read-garage.ts"
+  },
+  "dependencies": {
+    "@metaplex-foundation/mpl-bubblegum": "^5.1.0",
+    "@metaplex-foundation/umi": "^1.2.0",
+    "@metaplex-foundation/umi-bundle-defaults": "^1.2.0",
+    "dotenv": "^17.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.3.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5"
+  }
+}
