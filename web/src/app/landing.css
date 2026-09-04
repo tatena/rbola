@@ -32,6 +32,124 @@
   padding-left: 0.3em;
 }
 
+.landing-topmark {
+  color: rgba(242, 241, 238, 0.85);
+  font-size: 13px;
+  letter-spacing: 0.3em;
+  padding-left: 0.3em;
+}
+
+.landing-georgian-small {
+  color: var(--l-accent);
+  font-size: 10px;
+  letter-spacing: 0.26em;
+  padding-left: 0.26em;
+}
+
+/* ---- phone mockup: empty garage screen ---- */
+
+.landing {
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.landing-phone {
+  /* sized from viewport height too, so the whole phone always fits — no scroll */
+  width: min(290px, 76vw, calc((100dvh - 56px) * 0.4756));
+  aspect-ratio: 390 / 820;
+  border: 1px solid rgba(201, 179, 126, 0.45);
+  border-radius: 46px;
+  padding: 9px;
+  background: #0d0d13;
+  /* lets the screen text scale with the phone (cqw units below) */
+  container-type: inline-size;
+}
+
+.landing-phone-screen {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border-radius: 38px;
+  background: #0a0a0f;
+  overflow: hidden;
+}
+
+.landing-island {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 74px;
+  height: 20px;
+  border-radius: 10px;
+  background: #101014;
+}
+
+.landing-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 0 20px;
+}
+
+.landing-empty-title {
+  color: #f5f4f1;
+  font-size: 4.6cqw;
+  letter-spacing: 0.22em;
+  padding-left: 0.22em;
+  line-height: 1.8;
+  white-space: nowrap;
+}
+
+.landing-empty-cta {
+  color: var(--l-accent);
+  font-size: 4.2cqw;
+  letter-spacing: 0.24em;
+  padding-left: 0.24em;
+  line-height: 1.8;
+  white-space: nowrap;
+}
+
+/* mirrors the real BottomNav (flat bar, icon-only pills), scaled in cqw:
+   ref values / 390px phone width — pill 58×40 r20, icon 19, padding 12/14/16 */
+.landing-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 3.1cqw 3.6cqw 4.1cqw;
+  border-top: 0.5px solid rgba(233, 231, 226, 0.09);
+  background: #0a0a0f;
+}
+
+.landing-nav svg {
+  width: 4.9cqw;
+  height: 4.9cqw;
+}
+
+.landing-nav-item,
+.landing-nav-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14.9cqw;
+  height: 10.3cqw;
+  border-radius: 5.2cqw;
+}
+
+.landing-nav-item {
+  color: rgba(242, 241, 238, 0.36);
+}
+
+.landing-nav-pill {
+  color: var(--l-accent);
+  background: rgba(201, 179, 126, 0.09);
+  border: 0.5px solid rgba(201, 179, 126, 0.35);
+}
+
 .landing-hook {
   color: rgba(242, 241, 238, 0.7);
   font-size: 15px;
