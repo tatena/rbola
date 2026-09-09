@@ -1,6 +1,6 @@
 # RBOLA · რბოლა
 
-[![Live app](https://img.shields.io/badge/Live-rbola.vercel.app-C9B37E)](https://rbola.vercel.app)
+[![Live app](https://img.shields.io/badge/Live-rbola.fun-C9B37E)](https://rbola.fun)
 [![X](https://img.shields.io/badge/X-%40rbola__fun-111111)](https://x.com/rbola_fun)
 [![Solana Startup Village](https://img.shields.io/badge/Solana%20Startup%20Village%202026-2nd%20place-C9B37E)](https://x.com/rbola_fun)
 [![Colosseum](https://img.shields.io/badge/Colosseum-Crypto%20World's%20Fair%20entrant-9945FF)](https://x.com/tatena_n/status/2095798920861331606)
@@ -22,7 +22,7 @@ Built on Solana.
 
 ## Status
 
-**Working today** (`web/`, landing live at [rbola.vercel.app](https://rbola.vercel.app)):
+**Working today** (`web/`, landing live at [rbola.fun](https://rbola.fun)):
 
 - The catch loop runs end to end on Solana devnet: in-browser rear camera capture (getUserMedia) with GPS tagging, photo review, then the card is minted as a real compressed NFT (Metaplex Bubblegum v2 via Helius) with your photo as the art.
 - Garage reads your cards back from the chain via the Helius DAS API and shows them as a card grid.
