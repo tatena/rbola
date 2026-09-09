@@ -11,15 +11,6 @@ Spot a cool car → snap it in the app → verification (GPS + AI model recognit
 
 Built on Solana.
 
-## Screenshots
-
-<p>
-  <img src="docs/landing-desktop.png" alt="RBOLA landing page" width="100%">
-</p>
-<p>
-  <img src="docs/catch.png" alt="Catch screen: camera capture flow" width="300">
-</p>
-
 ## Status
 
 **Working today** (`web/`, landing live at [rbola.fun](https://rbola.fun)):
