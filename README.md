@@ -13,7 +13,7 @@ Built on Solana.
 
 ## Status
 
-**Working today** (`web/`, landing live at [rbola.fun](https://rbola.fun)):
+**Working today** (`web/`, on Solana devnet, not yet live for users; the public page at [rbola.fun](https://rbola.fun) is the landing only):
 
 - The catch loop runs end to end on Solana devnet: in-browser rear camera capture (getUserMedia) with GPS tagging, photo review, then the card is minted as a real compressed NFT (Metaplex Bubblegum v2 via Helius) with your photo as the art.
 - Garage reads your cards back from the chain via the Helius DAS API and shows them as a card grid.
