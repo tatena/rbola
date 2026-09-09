@@ -3,7 +3,7 @@
 [![Live app](https://img.shields.io/badge/Live-rbola.vercel.app-C9B37E)](https://rbola.vercel.app)
 [![X](https://img.shields.io/badge/X-%40rbola__fun-111111)](https://x.com/rbola_fun)
 [![Solana Startup Village](https://img.shields.io/badge/Solana%20Startup%20Village%202026-2nd%20place-C9B37E)](https://x.com/rbola_fun)
-[![Colosseum](https://img.shields.io/badge/Colosseum-Crypto%20World's%20Fair%20entrant-9945FF)](https://colosseum.com)
+[![Colosseum](https://img.shields.io/badge/Colosseum-Crypto%20World's%20Fair%20entrant-9945FF)](https://x.com/tatena_n/status/2095798920861331606)
 
 **Pokémon GO for cars.** Photograph real cars in the street, own them as verified digital cards, and race them.
 
