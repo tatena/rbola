@@ -13,13 +13,18 @@ import { keypairIdentity, none, publicKey } from "@metaplex-foundation/umi";
 const TREE = "7hZ1FXsYbFWon6rxrJydouX5dcsATMSFejsnNR4My41u";
 
 export async function POST(req: NextRequest) {
-  const { photo, name, lat, lon } = await req.json();
+  const { photo, name, lat, lon, frame, owner } = await req.json();
   if (!photo || !name) {
     return NextResponse.json(
       { error: "photo and name are required" },
       { status: 400 },
     );
   }
+  // mint to the logged-in user's wallet when provided; founder wallet fallback
+  const leafOwner =
+    typeof owner === "string" && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(owner)
+      ? owner
+      : process.env.CATCH_OWNER!;
 
   // v0: photos live on the dev server's disk; real hosting (Irys) comes later
   const id = Date.now().toString(36);
@@ -38,6 +43,8 @@ export async function POST(req: NextRequest) {
         { trait_type: "lat", value: String(lat ?? "") },
         { trait_type: "lon", value: String(lon ?? "") },
         { trait_type: "caught_at", value: new Date().toISOString() },
+        // card-frame crop (photo px) — card rendering uses this region
+        { trait_type: "card_frame", value: frame ? JSON.stringify(frame) : "" },
       ],
     }),
   );
@@ -51,7 +58,7 @@ export async function POST(req: NextRequest) {
   umi.use(keypairIdentity(umi.eddsa.createKeypairFromSecretKey(secret)));
 
   const { signature } = await mintV2(umi, {
-    leafOwner: publicKey(process.env.CATCH_OWNER!),
+    leafOwner: publicKey(leafOwner),
     merkleTree: publicKey(TREE),
     metadata: {
       name: `RBOLA · ${name}`.slice(0, 32),
@@ -70,8 +77,8 @@ export async function POST(req: NextRequest) {
       leaf = await parseLeafFromMintV2Transaction(umi, signature);
       break;
     } catch (e) {
-      if (attempt >= 5) throw e;
-      await new Promise((r) => setTimeout(r, 3000));
+      if (attempt >= 12) throw e;
+      await new Promise((r) => setTimeout(r, 1000));
     }
   }
 
@@ -85,6 +92,7 @@ export async function POST(req: NextRequest) {
     name,
     lat: lat ?? null,
     lon: lon ?? null,
+    frame: frame ?? null,
     time: new Date().toISOString(),
   });
   fs.writeFileSync(indexPath, JSON.stringify(index, null, 1));

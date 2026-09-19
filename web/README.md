@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# RBOLA web app
 
-## Getting Started
+The Next.js PWA behind [rbola.fun](https://rbola.fun): camera capture, card minting, garage, and races. See the [repo README](../README.md) for what RBOLA is and the current status.
 
-First, run the development server:
+## Develop
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev     # dev server on http://localhost:3000
+npm run build   # production build
+npm run lint
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Camera and GPS need a real phone for honest testing. `npm run dev` works on desktop with a webcam; for wallet flows (Privy) serve over HTTPS, for example through a tunnel.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Create `web/.env.local` (gitignored):
 
-## Learn More
+```
+NEXT_PUBLIC_PRIVY_APP_ID=   # Privy app id (client-side, enables login)
+HELIUS_API_KEY=             # Helius devnet RPC + DAS
+PAYER_KEYPAIR_PATH=         # local path to the devnet payer keypair
+CATCH_OWNER=                # fallback wallet for mints when logged out
+```
 
-To learn more about Next.js, take a look at the following resources:
+Without the server vars the app still runs; minting and garage reads are disabled. Never deploy the server vars to public hosting: the mint endpoint must stay dead in production until verification exists.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Layout
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+src/app/
+├── page.tsx        public landing (rbola.fun)
+├── (app)/          the mobile app: catch, upload, garage, race, me
+├── api/            server routes: catch (mint), garage (DAS read), photo
+└── spike/          proven spikes kept for reference: camera, wallet
+src/lib/            mint handoff store, wallet owner hook
+```
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Minting is server-side (Bubblegum v2 compressed NFTs on Solana devnet via Helius); the payer keypair never reaches the browser. Photos are stored on the dev server disk for now (`public/catches/`, gitignored); permanent hosting comes with the verification pipeline.

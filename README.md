@@ -22,7 +22,7 @@ Built on Solana.
 
 **In progress for Colosseum's Crypto World's Fair (Sept 14 to Oct 12, 2026):**
 
-- Anchor programs in `programs/`: race entries, prize pots, and payouts in $RBOLA.
+- Anchor programs in `programs/`: race entries, prize pots, and payouts in SOL.
 - Verification pipeline in `server/`: AI car model recognition, GPS and timestamp checks, duplicate catch detection.
 - Per-user Privy wallets wired into the catch flow, plus permanent hosting for card media and metadata.
 
@@ -46,4 +46,4 @@ rbola/
 
 1. `web/` (now): the catch loop. Camera to card on devnet, garage, PWA shell.
 2. `server/` (next): verification. AI model recognition, GPS and timestamp checks, dedup. A catch only counts if the car is real.
-3. `programs/` (Colosseum target): races. Anchor programs for $RBOLA entry races where winners split the pot.
+3. `programs/` (Colosseum target): races. Anchor programs for SOL-entry races where winners split the pot.
