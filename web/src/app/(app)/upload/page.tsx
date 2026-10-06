@@ -79,12 +79,25 @@ export default function UploadPage() {
       if (row.status === "done" || row.status === "minting") continue;
       patch(row.id, { status: "minting", error: undefined });
       try {
+        // same gate as the camera flow: verify, then mint with the verdict
+        const verifyRes = await fetch("/api/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ photo: row.dataUrl }),
+        });
+        const verdict = await verifyRes.json();
+        if (!verifyRes.ok) {
+          throw new Error(verdict.error ?? `HTTP ${verifyRes.status}`);
+        }
+        if (!verdict.verified) throw new Error(verdict.message);
+        patch(row.id, { name: verdict.name });
+
         const res = await fetch("/api/catch", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             photo: row.dataUrl,
-            name: row.name || "Unnamed",
+            verification: verdict.token,
             frame: null,
             owner: owner ?? undefined,
           }),
@@ -180,17 +193,16 @@ export default function UploadPage() {
               />
             </span>
             <span className="flex min-w-0 flex-1 flex-col gap-[5px]">
+              {/* read-only since gate v0 — the AI verdict names the card */}
               <input
                 value={row.name}
-                maxLength={24}
-                disabled={row.status === "done" || row.status === "minting"}
-                onChange={(e) => patch(row.id, { name: e.target.value })}
-                className="w-full bg-transparent text-[13px] leading-none text-foreground outline-none disabled:opacity-60"
+                readOnly
+                className="w-full bg-transparent text-[13px] leading-none text-foreground outline-none"
                 style={{
                   borderBottom: ".5px solid rgba(233,231,226,.14)",
                   paddingBottom: 5,
                 }}
-                placeholder="Car name"
+                placeholder="Named on verify"
               />
               <span
                 className="font-mono text-[8px] leading-none tracking-[.16em]"

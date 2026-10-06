@@ -7,6 +7,8 @@ export type Frame = { x: number; y: number; width: number; height: number };
 export type Draft = {
   photo: string;
   name: string;
+  // signed verdict from /api/verify — /api/catch refuses to mint without it
+  verification: string;
   lat?: number;
   lon?: number;
   caughtAt?: string;
@@ -44,6 +46,7 @@ export function clearDraft() {
 export function startMint(input: {
   photo: string;
   name: string;
+  verification: string;
   lat?: number;
   lon?: number;
   caughtAt?: string;
@@ -61,21 +64,40 @@ export function retryMint() {
   void run();
 }
 
+function postCatch(mine: Draft, verification: string) {
+  return fetch("/api/catch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      photo: mine.photo,
+      verification,
+      lat: mine.lat,
+      lon: mine.lon,
+      frame: mine.frame,
+    }),
+  });
+}
+
 async function run() {
   if (!draft) return;
   const mine = draft;
   try {
-    const res = await fetch("/api/catch", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        photo: mine.photo,
-        name: mine.name,
-        lat: mine.lat,
-        lon: mine.lon,
-        frame: mine.frame,
-      }),
-    });
+    let res = await postCatch(mine, mine.verification);
+    if (res.status === 403) {
+      // verification token expired (sheet sat open >10 min, or a retry long
+      // after a failed mint) — re-verify the same photo and try once more
+      const vr = await fetch("/api/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photo: mine.photo }),
+      });
+      const vj = await vr.json();
+      if (!vr.ok || !vj.verified) {
+        throw new Error(vj.message ?? vj.error ?? "verification expired");
+      }
+      mine.verification = vj.token;
+      res = await postCatch(mine, vj.token);
+    }
     const json = await res.json();
     if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
     if (draft === mine) {

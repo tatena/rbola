@@ -94,14 +94,20 @@ async function recognize(file: string) {
 }
 
 const files = [
-  ...["zonda.jpg", "gt3.jpg", "gr86.jpg"].map((f) => path.join(CARD_ASSETS, f)),
+  ...fs
+    .readdirSync(CARD_ASSETS)
+    .filter((f) => f.endsWith(".jpg"))
+    .map((f) => path.join(CARD_ASSETS, f)),
   ...fs
     .readdirSync(CATCHES)
     .filter((f) => f.endsWith(".jpg"))
     .map((f) => path.join(CATCHES, f)),
 ];
 
-for (const file of files) {
+// optional: npm run recognize -- 3  → only the first 3 photos (smoke test)
+const limit = Number(process.argv[2]) > 0 ? Number(process.argv[2]) : files.length;
+
+for (const file of files.slice(0, limit)) {
   try {
     await recognize(file);
   } catch (e) {

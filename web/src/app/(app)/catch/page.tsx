@@ -8,6 +8,13 @@ type Phase = "camera" | "mint";
 type MintState = "idle" | "added";
 type Facing = "environment" | "user";
 
+// AI verification of the captured photo (the ASSESSING beat is real now)
+type Verify =
+  | { status: "assessing" }
+  | { status: "verified"; name: string; token: string }
+  | { status: "rejected"; message: string }
+  | { status: "error" };
+
 const glassBtn =
   "flex h-[46px] w-[46px] items-center justify-center rounded-full bg-[rgba(10,10,15,.5)] hover:bg-[rgba(20,20,26,.7)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60";
 const glassBtnStyle = {
@@ -55,9 +62,10 @@ export default function CatchPage() {
   const [caughtAt, setCaughtAt] = useState<Date | null>(null);
   const [name, setName] = useState("");
   const [gps, setGps] = useState<{ lat: number; lon: number } | null>(null);
-  const [assessed, setAssessed] = useState(false);
+  const [verify, setVerify] = useState<Verify>({ status: "assessing" });
   const [autoFilled, setAutoFilled] = useState(false);
   const [mintState, setMintState] = useState<MintState>("idle");
+  const verifyIdRef = useRef(0);
 
   // card-frame crop: rect in photo pixels + user's vertical reframe
   const [cropRect, setCropRect] = useState<Rect | null>(null);
@@ -146,19 +154,38 @@ export default function CatchPage() {
     }
   }, [phase, startCamera]);
 
-  // ASSESSING for a beat, then auto-fill model + rarity
-  // (hardcoded until the AI recognition spike lands)
+  // ASSESSING: send the capture to the verification gate; the sheet fills
+  // with the recognized car, or shows the rejection and offers Retake.
+  // Called from event handlers (shutter/retry), never from an effect —
+  // verification starts during the shutter's gold-fill beat
+  const runVerify = useCallback(async (photoData: string) => {
+    const myId = ++verifyIdRef.current;
+    setVerify({ status: "assessing" });
+    setAutoFilled(false);
+    try {
+      const res = await fetch("/api/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photo: photoData }),
+      });
+      const json = await res.json();
+      if (myId !== verifyIdRef.current) return; // retaken meanwhile
+      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      if (json.verified) {
+        setVerify({ status: "verified", name: json.name, token: json.token });
+        setName(json.name);
+        setAutoFilled(true);
+      } else {
+        setVerify({ status: "rejected", message: json.message });
+      }
+    } catch {
+      if (myId === verifyIdRef.current) setVerify({ status: "error" });
+    }
+  }, []);
+
   useEffect(() => {
     if (phase !== "mint") return;
     warmGarageCache(); // so /garage arrives with the full ring ready
-    setAssessed(false);
-    setAutoFilled(false);
-    const t = window.setTimeout(() => {
-      setAssessed(true);
-      setName((n) => n || "Lamborghini Aventador");
-      setAutoFilled(true);
-    }, 2200);
-    return () => window.clearTimeout(t);
   }, [phase]);
 
   // track the mint-screen photo box size (it flexes per viewport)
@@ -221,7 +248,9 @@ export default function CatchPage() {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext("2d")!.drawImage(video, 0, 0);
-    setPhoto(canvas.toDataURL("image/jpeg", 0.9));
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+    setPhoto(dataUrl);
+    void runVerify(dataUrl);
 
     // map the on-screen CARD FRAME into full-frame photo pixels.
     // preview is object-fit:cover, so invert that projection
@@ -256,6 +285,8 @@ export default function CatchPage() {
 
   function retake() {
     if (mintState !== "idle") return;
+    verifyIdRef.current++; // drop any in-flight verification result
+    setVerify({ status: "assessing" }); // don't flash this verdict on the next shot
     setPhoto(null);
     setName("");
     setCaughtAt(null);
@@ -302,13 +333,14 @@ export default function CatchPage() {
   }
 
   function mint() {
-    if (mintState !== "idle" || !photo) return;
+    // only a verified catch can mint — the gate token is required server-side
+    if (mintState !== "idle" || !photo || verify.status !== "verified") return;
     // hand the mint to the background store; the garage renders it as a
     // SEALING card that authenticates while the chain call completes
     startMint({
       photo,
-      // fall back to the hardcoded model if mint is tapped mid-ASSESSING
-      name: name.trim() || "Lamborghini Aventador",
+      name: verify.name,
+      verification: verify.token,
       lat: gps?.lat,
       lon: gps?.lon,
       caughtAt: caughtAt?.toISOString(),
@@ -524,7 +556,7 @@ export default function CatchPage() {
         }}
       >
         <div className="flex items-center justify-between gap-3">
-          {assessed ? (
+          {verify.status === "verified" ? (
             <span
               className={`min-w-0 flex-1 truncate text-[22px] font-normal leading-[1.15] text-foreground-bright ${
                 autoFilled ? "name-reveal" : ""
@@ -533,7 +565,7 @@ export default function CatchPage() {
             >
               {name}
             </span>
-          ) : (
+          ) : verify.status === "assessing" ? (
             // shimmer loader while the model is being identified
             <span className="min-w-0 flex-1">
               <span
@@ -542,6 +574,17 @@ export default function CatchPage() {
                 aria-hidden
               />
             </span>
+          ) : verify.status === "rejected" ? (
+            <span className="min-w-0 flex-1 text-[15px] font-normal leading-[1.35] text-[rgba(242,241,238,.62)]">
+              {verify.message}
+            </span>
+          ) : (
+            <button
+              onClick={() => photo && void runVerify(photo)}
+              className="min-w-0 flex-1 text-left text-[15px] font-normal leading-[1.35] text-[rgba(242,241,238,.62)]"
+            >
+              Verification failed — tap to retry
+            </button>
           )}
           <span
             className="flex-none rounded-[5px] px-[9px] py-[5px] font-mono text-[9px] font-semibold leading-none tracking-[.2em] text-[rgba(242,241,238,.72)]"
@@ -550,7 +593,13 @@ export default function CatchPage() {
               border: ".5px solid rgba(233,231,226,.18)",
             }}
           >
-            {assessed ? "RARE" : "ASSESSING"}
+            {verify.status === "assessing"
+              ? "ASSESSING"
+              : verify.status === "verified"
+                ? "RARE"
+                : verify.status === "rejected"
+                  ? "REJECTED"
+                  : "RETRY"}
           </span>
         </div>
 
@@ -601,7 +650,8 @@ export default function CatchPage() {
         <div className="mt-7 pb-[6px]">
           <button
             onClick={mint}
-            className={`flex h-[54px] w-full items-center justify-center rounded-[15px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60 ${
+            disabled={mintState === "idle" && verify.status !== "verified"}
+            className={`flex h-[54px] w-full items-center justify-center rounded-[15px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60 disabled:opacity-40 ${
               mintState === "added"
                 ? "mint-flash bg-accent"
                 : "bg-[#14141A] hover:bg-[#191920]"
