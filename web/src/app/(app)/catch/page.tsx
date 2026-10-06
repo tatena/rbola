@@ -11,7 +11,7 @@ type Facing = "environment" | "user";
 // AI verification of the captured photo (the ASSESSING beat is real now)
 type Verify =
   | { status: "assessing" }
-  | { status: "verified"; name: string; token: string }
+  | { status: "verified"; name: string; token: string; rarity: string }
   | { status: "rejected"; message: string }
   | { status: "error" };
 
@@ -172,7 +172,12 @@ export default function CatchPage() {
       if (myId !== verifyIdRef.current) return; // retaken meanwhile
       if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
       if (json.verified) {
-        setVerify({ status: "verified", name: json.name, token: json.token });
+        setVerify({
+          status: "verified",
+          name: json.name,
+          token: json.token,
+          rarity: json.rarity ?? "rare",
+        });
         setName(json.name);
         setAutoFilled(true);
       } else {
@@ -596,7 +601,7 @@ export default function CatchPage() {
             {verify.status === "assessing"
               ? "ASSESSING"
               : verify.status === "verified"
-                ? "RARE"
+                ? verify.rarity.toUpperCase()
                 : verify.status === "rejected"
                   ? "REJECTED"
                   : "RETRY"}

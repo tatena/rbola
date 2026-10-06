@@ -28,18 +28,19 @@ export async function POST(req: NextRequest) {
   // mint only verified catches: the /api/verify verdict arrives as a signed
   // token bound to this exact photo, so the gate can't be skipped or replayed
   // onto a different image
-  const verdict =
+  const verified =
     typeof verification === "string"
       ? readVerificationToken(verification, photoSha256(b64))
       : null;
   // defense in depth: a valid signature alone isn't enough — the embedded
   // verdict must also pass the gate rule
-  if (!verdict || !evaluateVerdict(verdict).passed) {
+  if (!verified || !evaluateVerdict(verified.verdict).passed) {
     return NextResponse.json(
       { error: "catch is not verified" },
       { status: 403 },
     );
   }
+  const { verdict, resolution } = verified;
   const name = verdictName(verdict);
   // mint to the logged-in user's wallet when provided; founder wallet fallback
   const leafOwner =
@@ -70,6 +71,10 @@ export async function POST(req: NextRequest) {
         { trait_type: "model", value: verdict.model ?? "" },
         { trait_type: "generation", value: verdict.generation_or_trim ?? "" },
         { trait_type: "verify_confidence", value: verdict.confidence },
+        // catalog provenance — provisional cards settle on founder review
+        { trait_type: "spec_key", value: resolution.spec_key },
+        { trait_type: "catalog", value: resolution.catalog_version },
+        { trait_type: "rarity", value: resolution.rarity },
       ],
     }),
   );
@@ -123,6 +128,10 @@ export async function POST(req: NextRequest) {
       generation: verdict.generation_or_trim,
       confidence: verdict.confidence,
     },
+    spec_key: resolution.spec_key,
+    rarity: resolution.rarity,
+    provisional: resolution.provisional,
+    catalog_version: resolution.catalog_version,
   });
   fs.writeFileSync(indexPath, JSON.stringify(index, null, 1));
 

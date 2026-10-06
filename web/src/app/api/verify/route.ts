@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
+import { resolveSpec } from "@/lib/catalog";
 import {
   createVerificationToken,
   evaluateVerdict,
@@ -64,11 +65,31 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // catalog resolution: main → pending → fresh AI spec draft. The player
+  // never sees which path ran — an unlisted car gets a provisional entry
+  // drafted on the spot and mints like any other catch.
+  let resolution;
+  try {
+    resolution = await resolveSpec({
+      make: verdict.make ?? "",
+      model: verdict.model ?? "",
+      generation: verdict.generation_or_trim,
+      photoB64: b64,
+    });
+  } catch (e) {
+    console.error("spec resolution failed:", e);
+    return NextResponse.json(
+      { error: "verification unavailable — try again" },
+      { status: 502 },
+    );
+  }
+
   return NextResponse.json({
     verified: true,
     name: gate.name,
     generation: verdict.generation_or_trim,
     confidence: verdict.confidence,
-    token: createVerificationToken(photoSha256(b64), verdict),
+    rarity: resolution.rarity,
+    token: createVerificationToken(photoSha256(b64), verdict, resolution),
   });
 }

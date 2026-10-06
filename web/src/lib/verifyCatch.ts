@@ -5,6 +5,7 @@
 
 import crypto from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
+import type { Resolution } from "@/lib/catalog";
 
 const MODEL = process.env.VERIFY_MODEL ?? "claude-opus-4-8";
 const TOKEN_TTL_MS = 10 * 60 * 1000;
@@ -129,7 +130,14 @@ export function verdictName(verdict: Verdict): string {
 
 // --- signed verdict token: base64url(payload).base64url(hmac) ---
 
-type TokenPayload = { photoSha256: string; verdict: Verdict; exp: number };
+type TokenPayload = {
+  photoSha256: string;
+  verdict: Verdict;
+  resolution: Resolution;
+  exp: number;
+};
+
+export type VerifiedCatch = { verdict: Verdict; resolution: Resolution };
 
 function signingSecret(): Buffer {
   const secret = process.env.VERIFY_SIGNING_SECRET;
@@ -151,22 +159,24 @@ export function photoSha256(base64Jpeg: string): string {
 export function createVerificationToken(
   photoHash: string,
   verdict: Verdict,
+  resolution: Resolution,
 ): string {
   const payload: TokenPayload = {
     photoSha256: photoHash,
     verdict,
+    resolution,
     exp: Date.now() + TOKEN_TTL_MS,
   };
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
   return `${body}.${hmac(body).toString("base64url")}`;
 }
 
-// Returns the embedded verdict only for a valid, unexpired token whose
-// photo hash matches the submitted photo; null otherwise.
+// Returns the embedded verdict + catalog resolution only for a valid,
+// unexpired token whose photo hash matches the submitted photo; null otherwise.
 export function readVerificationToken(
   token: string,
   expectedPhotoHash: string,
-): Verdict | null {
+): VerifiedCatch | null {
   try {
     const [body, sig] = token.split(".");
     if (!body || !sig) return null;
@@ -179,7 +189,8 @@ export function readVerificationToken(
     ) as TokenPayload;
     if (payload.exp < Date.now()) return null;
     if (payload.photoSha256 !== expectedPhotoHash) return null;
-    return payload.verdict;
+    if (!payload.resolution) return null;
+    return { verdict: payload.verdict, resolution: payload.resolution };
   } catch {
     return null;
   }

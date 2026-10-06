@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { NextResponse } from "next/server";
+import { deriveStats, getEntry } from "@/lib/catalog";
 
 type CatchRecord = {
   assetId: string;
@@ -12,6 +13,8 @@ type CatchRecord = {
   time: string;
   hidden?: boolean;
   rarity?: string;
+  spec_key?: string;
+  provisional?: boolean;
 };
 
 export async function GET(req: Request) {
@@ -71,6 +74,9 @@ export async function GET(req: Request) {
   const cards = items.map(
     (a: { id: string; content?: { metadata?: { name?: string } } }) => {
       const rec = byAsset.get(a.id);
+      // cards read the LIVE catalog entry: provisional cards settle to the
+      // founder-reviewed spec automatically on promotion (Option B)
+      const entry = rec?.spec_key ? getEntry(rec.spec_key) : null;
       return {
         assetId: a.id,
         // registry name wins — on-chain names are frozen at mint, the
@@ -82,7 +88,12 @@ export async function GET(req: Request) {
         photo: rec?.photo
           ? rec.photo.replace(/^\/catches\//, "/api/photo/")
           : null,
-        rarity: rec?.rarity ?? null,
+        rarity: entry?.rarity ?? rec?.rarity ?? null,
+        spec: entry?.spec ?? null,
+        stats: entry ? deriveStats(entry.spec) : null,
+        // race gate: provisional (pending-catalog) cards can't enter paid
+        // races until their spec settles — entry.status is the live truth
+        provisional: entry ? entry.status !== "verified" : (rec?.provisional ?? false),
         lat: rec?.lat ?? null,
         lon: rec?.lon ?? null,
         frame: rec?.frame ?? null,
