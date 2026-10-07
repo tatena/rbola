@@ -16,6 +16,7 @@ Built on Solana.
 **Working today** (`web/`, on Solana devnet, not yet live for users; the public page at [rbola.fun](https://rbola.fun) is the landing only):
 
 - **AI verification gate (new):** every catch is verified before it can mint. A vision model identifies the real make/model — that names the card, no user input — and judges authenticity: non-cars, re-photographed screens, prints, and AI images are rejected on the capture sheet with the reason. The verdict travels to the mint endpoint as an HMAC-signed token bound to the photo's hash, so the check can't be skipped. Proven on-phone: street cars verified and named, a car photographed off a laptop screen rejected. Design and benchmark results in [`docs/verification.md`](docs/verification.md).
+- **Car catalog with real specs (new):** every verified catch resolves to a catalog entry — factory specs (hp, 0–100, top speed, weight), street-rarity tier, and derived race stats. Cars not yet in the curated catalog get an AI-drafted spec on the spot and mint as *provisional* cards that settle once the entry is reviewed and promoted — the player never hits a dead end, and published specs are frozen forever (never buffed or nerfed).
 - The catch loop runs end to end on Solana devnet: in-browser rear camera capture (getUserMedia) with GPS tagging, card-frame crop, verification, then the card is minted as a real compressed NFT (Metaplex Bubblegum v2 via Helius) with your photo as the art and the verified identity in its metadata.
 - Garage reads your cards back from the chain via the Helius DAS API and renders them as a 3D card carousel — tap to flip to the spec side.
 - Designed screens built: scanner, capture-to-mint sheet, garage, profile, race car-select.
@@ -24,8 +25,8 @@ Built on Solana.
 
 **In progress for Colosseum's Crypto World's Fair (Sept 14 to Oct 12, 2026):**
 
-- Races: SOL-entry races where winners split the pot — race screens, server-side resolution, and escrow/payouts.
-- Verification hardening: duplicate-catch detection (the model already reads plates), GPS and timestamp plausibility checks, and a versioned car catalog to pin exact generations and drive rarity.
+- Races: SOL-entry races where winners split the pot — race screens, deterministic server-side resolution from card stats, and real on-chain SOL entry/payout transactions (server-managed race ledger).
+- Verification hardening: duplicate-catch detection (the model already reads plates), GPS and timestamp plausibility checks, and growing the curated catalog that pins exact generations and drives rarity.
 - Per-user Privy wallets wired through the whole flow, plus permanent hosting for card media and metadata.
 
 ## Monorepo layout
@@ -33,8 +34,7 @@ Built on Solana.
 ```
 rbola/
 ├── web/        Next.js PWA: camera capture, garage, races
-├── server/     (planned) verification pipeline
-└── programs/   (planned) on-chain programs (Anchor)
+└── server/     (planned) verification pipeline + race ledger
 ```
 
 ## Tech stack
@@ -48,5 +48,5 @@ rbola/
 ## Roadmap
 
 1. `web/` (done): the catch loop. Camera to card on devnet, garage, PWA shell.
-2. Verification (v0 shipped, in `web/`): AI model recognition names the card and rejects fakes — a catch only counts if the car is real. Next: dedup, GPS/timestamp checks, and the car catalog; graduates into `server/` as the pipeline grows.
-3. Races (Colosseum target): SOL-entry races where winners split the pot — screens, resolution engine, and on-chain escrow in `programs/`.
+2. Verification (v0 shipped, in `web/`): AI model recognition names the card and rejects fakes — a catch only counts if the car is real. Catalog with AI-drafted pending entries shipped. Next: dedup and GPS/timestamp checks; graduates into `server/` as the pipeline grows.
+3. Races (Colosseum target): SOL-entry races where winners split the pot — screens, deterministic resolution engine, and SOL entries/payouts as real on-chain transactions.

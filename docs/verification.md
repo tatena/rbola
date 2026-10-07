@@ -24,7 +24,10 @@ And the answer must be unforgeable across the two requests.
 phone camera ──photo──▶ POST /api/verify ──▶ vision LLM (Claude API)
                               │                 structured output
                               ▼
-                 verdict JSON + signed token
+                   gate passed? ──▶ catalog resolver (spec + rarity)
+                              │       main → pending → fresh AI draft
+                              ▼
+            verdict + resolution + signed token
                               │
 phone ──photo + token──▶ POST /api/catch ──▶ token valid? gate passed?
                                                    │
@@ -35,8 +38,10 @@ phone ──photo + token──▶ POST /api/catch ──▶ token valid? gate p
 | Piece | Location | Role |
 |---|---|---|
 | `verifyCatch.ts` | `web/src/lib/` | recognition call, gate rule, token sign/verify |
-| `POST /api/verify` | `web/src/app/api/verify/` | photo → verdict + token |
+| `catalog.ts` | `web/src/lib/` | spec resolution, AI spec drafts, derived stats |
+| `POST /api/verify` | `web/src/app/api/verify/` | photo → verdict + spec resolution + token |
 | `POST /api/catch` | `web/src/app/api/catch/` | refuses to mint without a valid token |
+| `GET /api/garage` | `web/src/app/api/garage/` | cards read live catalog entries (settlement) |
 | capture sheet | `web/src/app/(app)/catch/` | ASSESSING beat = the live verify call |
 
 ## Recognition: an LLM as a structured classifier
@@ -88,6 +93,33 @@ all 9 planted fakes (screen re-photographs, AI images) flagged. ~5s latency,
 roughly $0.03/photo at current Opus pricing; the engine is a single function
 behind an env-var model id, so swapping to a cheaper tier is a config change.
 
+## From verdict to card: the two-layer catalog
+
+A passed verdict names the car; the catalog turns it into a card with real
+factory specs (hp, 0–100, top speed, curb weight), a street-rarity tier, and
+derived race stats. Resolution order in `catalog.ts`:
+
+1. **Main catalog** (`src/data/catalog/main.json`) — curated, versioned,
+   bundled at build time. Entries are frozen once published: this is the
+   never-buff/nerf promise enforced by architecture. Generation ambiguity is
+   resolved cheaply from the recognizer's generation string, or by letting
+   the spec-draft call confirm the generation from the photo.
+2. **Pending catalog** (`data/catalog-pending.json`) — when a verified car
+   isn't listed, one extra AI call drafts its spec (photo confirms the
+   generation; most common production trim; sanity bounds force
+   `spec_confidence: low` on outliers) and the entry is quarantined here.
+   Deduped by make+model so generation wording wobble can't fork entries.
+3. The player never hits a dead end and never learns the car "wasn't in our
+   list" — the card mints either way.
+
+Cards minted from pending entries are **provisional**: the garage reads the
+live entry on every load, so when the entry is reviewed and promoted to main
+(specs corrected if needed), the card settles once and is frozen from then on.
+Until settled, provisional cards are excluded from paid races (the race gate).
+
+Race stats (`SPEED`/`ACCEL`/`HANDLING`, 1–100) are a pure function of the
+spec (`deriveStats`) — one tunable place, deterministic by design.
+
 ## The trust boundary: signed verdict tokens
 
 The verdict must travel through the untrusted client between `/api/verify`
@@ -95,7 +127,7 @@ and `/api/catch`. It travels signed:
 
 ```
 token = base64url(payload) + "." + base64url(HMAC-SHA256(payload, secret))
-payload = { photoSha256, verdict, exp }   // exp = issue time + 10 min
+payload = { photoSha256, verdict, resolution, exp }   // exp = issue time + 10 min
 ```
 
 `/api/catch` recomputes SHA-256 over the submitted photo bytes, verifies the
@@ -139,9 +171,12 @@ is no unverified path to `/api/catch`.
   perceptual hash + plate hash (the model already reads visible plates) +
   GPS/time clustering.
 - **No GPS/timestamp plausibility checks yet** — separate layer.
-- **Free-form trim** — make/model is reliable; exact trim can wobble between
-  shots of the same car. Next iteration constrains recognition against a
-  versioned in-repo car catalog (pick-from-list, not free-form), which is
-  also what makes card specs immutable by construction.
+- **Main catalog is empty (v0)** — until the curated seed list is reviewed
+  and frozen as catalog v1, every first catch of a model takes the pending
+  path (one extra AI call, ~3s, ~$0.03) and mints provisional. Shrinks as
+  the main catalog grows.
+- **Stat normalization is a first guess** — `deriveStats` ranges spread the
+  real fleet across 1–100 but haven't been tuned against the race engine
+  (which doesn't exist yet).
 - **No rate limiting** on `/api/verify` — each call costs real money; needed
   before public exposure.
