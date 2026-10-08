@@ -16,7 +16,7 @@ import mainCatalog from "@/data/catalog/main.json";
 const SPEC_MODEL = process.env.VERIFY_MODEL ?? "claude-opus-4-8";
 const PENDING_PATH = path.join(process.cwd(), "data", "catalog-pending.json");
 
-export type Rarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
+export type Rarity = "common" | "scarce" | "rare" | "epic" | "legendary";
 
 export type Spec = {
   hp: number;
@@ -110,7 +110,7 @@ const DRAFT_SCHEMA = {
     weight_kg: { type: "integer", description: "curb weight" },
     rarity: {
       type: "string",
-      enum: ["common", "uncommon", "rare", "epic", "legendary"],
+      enum: ["common", "scarce", "rare", "epic", "legendary"],
       description: "how rare this car is on a typical city street, globally",
     },
     spec_confidence: { type: "string", enum: ["high", "medium", "low"] },
