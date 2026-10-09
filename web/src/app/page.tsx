@@ -1,9 +1,12 @@
 import "./landing.css";
 
-// Public landing page (rbola.fun). The app itself lives under the (app)
-// route group — /catch, /garage, /race — and is deliberately not linked
-// from here while it's pre-launch. Styling is scoped to landing.css so
-// this page deploys correctly regardless of app-screen work in flight.
+// Public landing page (rbola.fun). The app itself is served from
+// app.rbola.fun (Hetzner); the landing links in exactly once — the phone's
+// CTA and a single PLAY pill both open the camera there. App routes hit on
+// rbola.fun are redirected across in next.config.ts. Styling is scoped to
+// landing.css so this page deploys regardless of app-screen work in flight.
+
+const APP_URL = "https://app.rbola.fun/catch";
 
 // Icon paths mirror src/components/BottomNav.tsx exactly — the landing
 // phone is a truthful screenshot of the app, garage tab active.
@@ -43,9 +46,12 @@ export default function Home() {
               <p className="landing-mono landing-empty-title">
                 YOUR GARAGE IS EMPTY
               </p>
-              <p className="landing-mono landing-empty-cta">
+              <a
+                href={APP_URL}
+                className="landing-mono landing-empty-cta"
+              >
                 CATCH YOUR FIRST CAR
-              </p>
+              </a>
             </div>
 
             <div className="landing-nav" aria-hidden>
@@ -71,6 +77,14 @@ export default function Home() {
             </div>
           </div>
         </div>
+
+        <a
+          href={APP_URL}
+          className="landing-in landing-mono landing-play"
+          style={{ animationDelay: "320ms" }}
+        >
+          PLAY
+        </a>
       </div>
     </main>
   );

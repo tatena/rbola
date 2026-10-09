@@ -55,7 +55,7 @@
 
 .landing-phone {
   /* sized from viewport height too, so the whole phone always fits — no scroll */
-  width: min(290px, 76vw, calc((100dvh - 56px) * 0.4756));
+  width: min(290px, 76vw, calc((100dvh - 128px) * 0.4756));
   aspect-ratio: 390 / 820;
   border: 1px solid rgba(201, 179, 126, 0.45);
   border-radius: 46px;
@@ -112,6 +112,39 @@
   padding-left: 0.24em;
   line-height: 1.8;
   white-space: nowrap;
+}
+
+a.landing-empty-cta {
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* the one way into the app: hairline champagne pill, mono micro-caps */
+.landing-play {
+  margin-top: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  min-width: 128px;
+  padding: 0 28px 0 calc(28px + 0.3em); /* balances trailing letterspace */
+  border: 1px solid rgba(201, 179, 126, 0.55);
+  border-radius: 20px;
+  color: var(--l-accent);
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.25s ease, background-color 0.25s ease,
+    border-color 0.25s ease;
+}
+
+.landing-play:hover,
+.landing-play:focus-visible {
+  color: #e0cd9c;
+  border-color: #e0cd9c;
+  background: rgba(201, 179, 126, 0.08);
+  outline: none;
 }
 
 /* mirrors the real BottomNav (flat bar, icon-only pills), scaled in cqw:
