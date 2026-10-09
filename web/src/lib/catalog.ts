@@ -10,11 +10,12 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { STATE_DIR } from "@/lib/dataDir";
 import Anthropic from "@anthropic-ai/sdk";
 import mainCatalog from "@/data/catalog/main.json";
 
 const SPEC_MODEL = process.env.VERIFY_MODEL ?? "claude-opus-4-8";
-const PENDING_PATH = path.join(process.cwd(), "data", "catalog-pending.json");
+const PENDING_PATH = path.join(STATE_DIR, "catalog-pending.json");
 
 export type Rarity = "common" | "scarce" | "rare" | "epic" | "legendary";
 

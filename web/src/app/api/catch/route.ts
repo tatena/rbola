@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { CATCHES_DIR, REGISTRY_PATH } from "@/lib/dataDir";
 import { NextRequest, NextResponse } from "next/server";
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import {
@@ -42,15 +43,18 @@ export async function POST(req: NextRequest) {
   }
   const { verdict, resolution } = verified;
   const name = verdictName(verdict);
-  // mint to the logged-in user's wallet when provided; founder wallet fallback
-  const leafOwner =
-    typeof owner === "string" && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(owner)
-      ? owner
-      : process.env.CATCH_OWNER!;
+  // mint to the player's wallet; the founder-wallet fallback exists only for
+  // dev builds without auth configured
+  const validOwner =
+    typeof owner === "string" && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(owner);
+  if (!validOwner && process.env.NEXT_PUBLIC_PRIVY_APP_ID) {
+    return NextResponse.json({ error: "sign in to mint" }, { status: 401 });
+  }
+  const leafOwner = validOwner ? owner : process.env.CATCH_OWNER!;
 
   // v0: photos live on the dev server's disk; real hosting (Irys) comes later
   const id = Date.now().toString(36);
-  const dir = path.join(process.cwd(), "public", "catches");
+  const dir = CATCHES_DIR;
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, `${id}.jpg`), Buffer.from(b64, "base64"));
   fs.writeFileSync(
@@ -112,7 +116,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const indexPath = path.join(dir, "index.json");
+  const indexPath = REGISTRY_PATH;
   const index = fs.existsSync(indexPath)
     ? JSON.parse(fs.readFileSync(indexPath, "utf8"))
     : [];

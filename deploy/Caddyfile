@@ -1,0 +1,7 @@
+app.rbola.fun {
+	encode zstd gzip
+	request_body {
+		max_size 25MB
+	}
+	reverse_proxy localhost:3000
+}

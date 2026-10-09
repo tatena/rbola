@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import path from "node:path";
+import { REGISTRY_PATH } from "@/lib/dataDir";
 import { NextResponse } from "next/server";
 import { deriveStats, getEntry } from "@/lib/catalog";
 
@@ -18,13 +18,14 @@ type CatchRecord = {
 };
 
 export async function GET(req: Request) {
-  // garage of the logged-in user's wallet; fallback = founder catch wallet
-  // (logged-out dev/review keeps working)
+  // garage of the logged-in user's wallet; the founder-wallet fallback exists
+  // only for dev builds without auth — signed out with auth = empty garage
   const qOwner = new URL(req.url).searchParams.get("owner");
-  const owner =
-    qOwner && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(qOwner)
-      ? qOwner
-      : process.env.CATCH_OWNER;
+  const valid = !!qOwner && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(qOwner);
+  if (!valid && process.env.NEXT_PUBLIC_PRIVY_APP_ID) {
+    return NextResponse.json({ total: 0, cards: [], sol: null });
+  }
+  const owner = valid ? qOwner : process.env.CATCH_OWNER;
   const rpc = `https://devnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`;
   const call = (body: object) =>
     fetch(rpc, {
@@ -60,7 +61,7 @@ export async function GET(req: Request) {
     );
   }
 
-  const indexPath = path.join(process.cwd(), "public", "catches", "index.json");
+  const indexPath = REGISTRY_PATH;
   const local: CatchRecord[] = fs.existsSync(indexPath)
     ? JSON.parse(fs.readFileSync(indexPath, "utf8"))
     : [];
@@ -107,5 +108,7 @@ export async function GET(req: Request) {
     total: assets.result.total - (assets.result.items.length - items.length),
     cards,
     sol: typeof lamports === "number" ? lamports / 1e9 : null,
+    // devnet flag (founder call 10-08): provisional cards may enter paid races
+    raceProvisional: process.env.RACE_ALLOW_PROVISIONAL === "1",
   });
 }

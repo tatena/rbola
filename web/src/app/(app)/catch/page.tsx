@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { startMint, warmGarageCache } from "@/lib/mintStore";
+import { hasAuth, useAuthActions, useOwner } from "@/lib/useOwner";
 
 type Phase = "camera" | "mint";
 type MintState = "idle" | "added";
@@ -48,6 +49,10 @@ function formatCaught(d: Date) {
 
 export default function CatchPage() {
   const router = useRouter();
+  const { owner, authenticated } = useOwner();
+  const { login } = useAuthActions();
+  // MINT tapped while signed out: finish the mint once the wallet resolves
+  const mintAfterLogin = useRef(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const facingRef = useRef<Facing>("environment");
@@ -190,8 +195,8 @@ export default function CatchPage() {
 
   useEffect(() => {
     if (phase !== "mint") return;
-    warmGarageCache(); // so /garage arrives with the full ring ready
-  }, [phase]);
+    warmGarageCache(owner); // so /garage arrives with the full ring ready
+  }, [phase, owner]);
 
   // track the mint-screen photo box size (it flexes per viewport)
   useEffect(() => {
@@ -337,9 +342,23 @@ export default function CatchPage() {
     return { ...cropRect, y };
   }
 
+  useEffect(() => {
+    if (owner && mintAfterLogin.current) {
+      mintAfterLogin.current = false;
+      mint();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [owner]);
+
   function mint() {
     // only a verified catch can mint — the gate token is required server-side
     if (mintState !== "idle" || !photo || verify.status !== "verified") return;
+    // the card mints to the player's own wallet — sign in first
+    if (hasAuth && !owner) {
+      mintAfterLogin.current = true;
+      if (!authenticated) login();
+      return;
+    }
     // hand the mint to the background store; the garage renders it as a
     // SEALING card that authenticates while the chain call completes
     startMint({
@@ -350,6 +369,7 @@ export default function CatchPage() {
       lon: gps?.lon,
       caughtAt: caughtAt?.toISOString(),
       frame: chosenFrame(),
+      owner: owner ?? undefined,
     });
     setMintState("added");
     window.setTimeout(() => router.push("/garage"), 900);
@@ -499,7 +519,12 @@ export default function CatchPage() {
   }
 
   // ---- Capture → mint (screen 1b) ----
-  const mintLabel = mintState === "added" ? "ADDED TO GARAGE" : "MINT TO GARAGE";
+  const mintLabel =
+    mintState === "added"
+      ? "ADDED TO GARAGE"
+      : hasAuth && !authenticated
+        ? "SIGN IN TO MINT"
+        : "MINT TO GARAGE";
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background">

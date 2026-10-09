@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { resolveSpec } from "@/lib/catalog";
+import { allow, clientIp } from "@/lib/rateLimit";
 import {
   createVerificationToken,
   evaluateVerdict,
@@ -34,6 +35,17 @@ export async function POST(req: NextRequest) {
   const b64 = photo.replace(/^data:image\/\w+;base64,/, "");
   if (b64.length > MAX_PHOTO_B64_CHARS) {
     return NextResponse.json({ error: "photo too large" }, { status: 413 });
+  }
+
+  // every check is a paid vision call — cap it per network and globally
+  if (
+    !allow(`verify:${clientIp(req)}`, 30, 3600_000) ||
+    !allow("verify:all", 600, 24 * 3600_000)
+  ) {
+    return NextResponse.json(
+      { error: "too many checks — try again later" },
+      { status: 429 },
+    );
   }
 
   let verdict;

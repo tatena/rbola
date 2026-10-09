@@ -26,3 +26,7 @@ Thumbs.db
 
 # logs
 *.log
+
+# race ledger (dev-server state, like public/catches)
+web/data/races.json
+web/data/faucet.json

@@ -17,17 +17,17 @@ Built on Solana.
 
 - **AI verification gate (new):** every catch is verified before it can mint. A vision model identifies the real make/model — that names the card, no user input — and judges authenticity: non-cars, re-photographed screens, prints, and AI images are rejected on the capture sheet with the reason. The verdict travels to the mint endpoint as an HMAC-signed token bound to the photo's hash, so the check can't be skipped. Proven on-phone: street cars verified and named, a car photographed off a laptop screen rejected. Design and benchmark results in [`docs/verification.md`](docs/verification.md).
 - **Car catalog with real specs (new):** every verified catch resolves to a catalog entry — factory specs (hp, 0–100, top speed, weight), street-rarity tier, and derived race stats. Cars not yet in the curated catalog get an AI-drafted spec on the spot and mint as *provisional* cards that settle once the entry is reviewed and promoted — the player never hits a dead end, and published specs are frozen forever (never buffed or nerfed).
+- **Races for SOL (new):** pick a track, a rarity room and a car; the entry fee is a real devnet transfer to a server race wallet, opponents are matched on the same track and room, the result is a deterministic function of the cards' real specs, and the winner is paid the pot minus a 15% rake on-chain. Ties and cancels are refunded in full; a house car takes the seat if no rival shows up. Verified end to end on devnet; the full flow — searching, head-to-head reveal, race, result with the payout transaction — is in the app. See [`docs/races.md`](docs/races.md).
 - The catch loop runs end to end on Solana devnet: in-browser rear camera capture (getUserMedia) with GPS tagging, card-frame crop, verification, then the card is minted as a real compressed NFT (Metaplex Bubblegum v2 via Helius) with your photo as the art and the verified identity in its metadata.
 - Garage reads your cards back from the chain via the Helius DAS API and renders them as a 3D card carousel — tap to flip to the spec side.
-- Designed screens built: scanner, capture-to-mint sheet, garage, profile, race car-select.
+- Designed screens built: scanner, capture-to-mint sheet, garage, profile, race track / tier / car select.
 - Installable PWA shell (no app store): mobile-first layout, bottom nav, web manifest.
 - Proven spikes kept in the tree: mobile camera harness (`/spike/camera`) and Privy embedded wallet login (`/spike/wallet`).
 
 **In progress for Colosseum's Crypto World's Fair (Sept 14 to Oct 12, 2026):**
 
-- Races: SOL-entry races where winners split the pot — race screens, deterministic server-side resolution from card stats, and real on-chain SOL entry/payout transactions (server-managed race ledger).
 - Verification hardening: duplicate-catch detection (the model already reads plates), GPS and timestamp plausibility checks, and growing the curated catalog that pins exact generations and drives rarity.
-- Per-user Privy wallets wired through the whole flow, plus permanent hosting for card media and metadata.
+- Permanent hosting for card media and metadata (today served from the beta server).
 
 ## Monorepo layout
 
@@ -49,4 +49,4 @@ rbola/
 
 1. `web/` (done): the catch loop. Camera to card on devnet, garage, PWA shell.
 2. Verification (v0 shipped, in `web/`): AI model recognition names the card and rejects fakes — a catch only counts if the car is real. Catalog with AI-drafted pending entries shipped. Next: dedup and GPS/timestamp checks; graduates into `server/` as the pipeline grows.
-3. Races (Colosseum target): SOL-entry races where winners split the pot — screens, deterministic resolution engine, and SOL entries/payouts as real on-chain transactions.
+3. Races (backend v0 shipped, in `web/`): SOL entries and payouts as real on-chain transactions through a server race ledger, deterministic resolution from card specs. Race screens shipped: searching, reveal, result.

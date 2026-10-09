@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { CATCHES_DIR } from "@/lib/dataDir";
 import { NextResponse } from "next/server";
 
 // Catch photos are written to public/catches at runtime; the production
@@ -13,7 +14,7 @@ export async function GET(
   if (!/^[a-z0-9]+\.jpg$/.test(file)) {
     return NextResponse.json({ error: "bad name" }, { status: 400 });
   }
-  const p = path.join(process.cwd(), "public", "catches", file);
+  const p = path.join(CATCHES_DIR, file);
   if (!fs.existsSync(p)) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }

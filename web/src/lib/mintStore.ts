@@ -13,6 +13,8 @@ export type Draft = {
   lon?: number;
   caughtAt?: string;
   frame: Frame | null;
+  // player wallet the card mints to
+  owner?: string;
   status: "sealing" | "minted" | "error";
   assetId: string | null;
   error: string | null;
@@ -51,6 +53,7 @@ export function startMint(input: {
   lon?: number;
   caughtAt?: string;
   frame: Frame | null;
+  owner?: string;
 }) {
   draft = { ...input, status: "sealing", assetId: null, error: null };
   emit();
@@ -74,6 +77,7 @@ function postCatch(mine: Draft, verification: string) {
       lat: mine.lat,
       lon: mine.lon,
       frame: mine.frame,
+      owner: mine.owner,
     }),
   });
 }
@@ -131,8 +135,9 @@ export function setGarageCache(snap: GarageSnapshot) {
   garageCache = snap;
 }
 
-export function warmGarageCache() {
-  fetch("/api/garage")
+export function warmGarageCache(owner: string | null) {
+  if (!owner) return;
+  fetch(`/api/garage?owner=${owner}`)
     .then((r) => r.json())
     .then((j) => {
       if (!j.error) garageCache = { cards: j.cards ?? [], sol: j.sol ?? null };
