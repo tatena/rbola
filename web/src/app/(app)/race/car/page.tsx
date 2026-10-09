@@ -3,13 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOwner } from "@/lib/useOwner";
+import { useRaceEntry } from "@/lib/useRaceEntry";
 import RaceProgress from "../RaceProgress";
 
 // Race flow step 3 — SELECT CAR (locked 2026-10-08: the garage 3D ring
 // carousel reused, filtered to the seated rarity room; the ENTER CTA states
 // the fee and is the entry commit). Ring math/markup adapted from
 // garage/page.tsx — mint choreography dropped, provisional cards show the
-// sealing veil and can't enter.
+// sealing veil and can't enter paid rooms (devnet flag aside).
 
 type ApiCard = {
   assetId: string;
@@ -17,6 +18,7 @@ type ApiCard = {
   photo: string | null;
   rarity: string | null;
   provisional?: boolean;
+  stats: { speed: number; accel: number; handling: number } | null;
   lat: number | null;
   lon: number | null;
   time: string | null;
@@ -32,21 +34,20 @@ type CardVM = {
   place: string;
   stats: { label: string; value: number }[];
   provisional: boolean;
+  hasSpecs: boolean; // pre-catalog catches have no spec and can't race
 };
 
 const ROOM_NAMES = ["COMMON", "SCARCE", "RARE", "EPIC", "LEGENDARY"];
 const FEES = [0.01, 0.02, 0.05, 0.1, 0.25];
 
-// race stats are SPEED/ACCEL/HANDLING only (deterministic lock) —
-// hash-placeholder values until catalog-derived stats are wired through
-const STAT_LABELS = ["Speed", "Accel", "Handling"];
-function statsFor(seed: string | null): { label: string; value: number }[] {
-  return STAT_LABELS.map((label, i) => {
-    if (!seed) return { label, value: 0 };
-    let h = 2166136261 ^ (i * 977);
-    for (const ch of seed) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
-    return { label, value: 40 + (Math.abs(h) % 58) };
-  });
+// race stats are SPEED/ACCEL/HANDLING only (deterministic lock) — the same
+// catalog-derived values the race engine scores with
+function statsFor(s: ApiCard["stats"]): { label: string; value: number }[] {
+  return [
+    { label: "Speed", value: s?.speed ?? 0 },
+    { label: "Accel", value: s?.accel ?? 0 },
+    { label: "Handling", value: s?.handling ?? 0 },
+  ];
 }
 
 const CITIES = [
@@ -95,6 +96,7 @@ export default function RaceCarSelect() {
   const router = useRouter();
   const [cards, setCards] = useState<ApiCard[] | null>(null);
   const [sol, setSol] = useState<number | null>(null);
+  const [raceProvisional, setRaceProvisional] = useState(false);
   const [tier, setTier] = useState<string | null>(null);
 
   const [turn, setTurn] = useState(0);
@@ -123,6 +125,7 @@ export default function RaceCarSelect() {
         if (j.error) return;
         setCards(j.cards ?? []);
         setSol(j.sol ?? null);
+        setRaceProvisional(!!j.raceProvisional);
       })
       .catch(() => {});
   }, [owner, pending]);
@@ -165,8 +168,9 @@ export default function RaceCarSelect() {
       rarity: c.provisional ? "SEALING" : (c.rarity ?? "RARE").toUpperCase(),
       date: dateFor(c.time),
       place: placeFor(c.lat, c.lon, c.assetId),
-      stats: statsFor(c.provisional ? null : c.assetId),
+      stats: statsFor(c.provisional ? null : c.stats),
       provisional: !!c.provisional,
+      hasSpecs: c.stats != null,
     }));
   }, [cards, roomName]);
 
@@ -283,22 +287,40 @@ export default function RaceCarSelect() {
     }
   }
 
+  const race = useRaceEntry();
   const activeVM = N > 0 ? vms[active] : null;
-  const ctaDead = !activeVM || activeVM.provisional;
-  const ctaLabel = !activeVM
-    ? isPractice
-      ? "PRACTICE"
-      : `ENTER · ${fee.toFixed(2)} SOL`
-    : activeVM.provisional
-      ? "SPECS NOT SETTLED"
-      : isPractice
-        ? "PRACTICE"
-        : `ENTER · ${fee.toFixed(2)} SOL`;
+  const gated = !!activeVM?.provisional && !isPractice && !raceProvisional;
+  const busy = race.phase === "signing" || race.phase === "entering";
+  const noSpecs = !!activeVM && !activeVM.hasSpecs;
+  const ctaDead = !activeVM || gated || noSpecs || busy;
+  const ctaLabel =
+    race.phase === "signing"
+      ? "CONFIRM IN WALLET"
+      : race.phase === "entering"
+        ? "ENTERING"
+        : race.phase === "error"
+          ? (race.error ?? "TRY AGAIN").toUpperCase()
+          : noSpecs
+            ? "NO SPECS YET"
+            : gated
+              ? "SPECS NOT SETTLED"
+              : isPractice
+                ? "PRACTICE"
+                : `ENTER · ${fee.toFixed(2)} SOL`;
 
-  const onEnter = () => {
+  // commit → the live screen (searching → VS → race → result), keyed by the
+  // entry id so it survives a reload
+  const onEnter = async () => {
+    if (race.phase === "error") return race.reset();
     if (ctaDead || !activeVM) return;
     sessionStorage.setItem("rbola.race.car", activeVM.key);
-    // next step (searching / escrow) not built yet — selection is stored
+    const id = await race.enter({
+      owner,
+      assetId: activeVM.key,
+      track: sessionStorage.getItem("rbola.race.track") ?? "HIGHWAY RUN",
+      room: isPractice ? "practice" : roomName!.toLowerCase(),
+    });
+    if (id) router.push(`/race/live/${id}`);
   };
 
   return (
