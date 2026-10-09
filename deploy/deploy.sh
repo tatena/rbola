@@ -8,7 +8,7 @@ cd "$(dirname "$0")/.."
 rsync -az --delete \
   --exclude node_modules --exclude .next --exclude '.env*' \
   --exclude public/catches --exclude data/races.json --exclude data/catalog-pending.json \
-  --exclude tsconfig.tsbuildinfo \
+  --exclude data/faucet.json --exclude tsconfig.tsbuildinfo \
   web/ "$HOST:/srv/rbola/app/web/"
 
 ssh "$HOST" 'set -e
