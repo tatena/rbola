@@ -249,3 +249,38 @@ body {
     transform: scale(1);
   }
 }
+
+/* race flow — design-system motion (Claude Design RBOLA Phone.dc.html).
+   Final values are set inline; animations only play the arrival, so
+   reduced-motion users simply see the settled state. */
+@media (prefers-reduced-motion: no-preference) {
+  .rbola-rise {
+    animation: rbola-rise 1s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+  .rbola-sweep {
+    animation: rbola-sweep 1.4s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+  .rbola-needle {
+    animation: rbola-needle 1.4s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+}
+@keyframes rbola-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes rbola-sweep {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+@keyframes rbola-needle {
+  from {
+    transform: rotate(-90deg);
+  }
+}
