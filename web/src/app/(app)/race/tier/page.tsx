@@ -60,6 +60,7 @@ export default function RaceTierSelect() {
   const router = useRouter();
   const [sol, setSol] = useState<number | null>(null);
   const [cards, setCards] = useState<ApiCard[] | null>(null);
+  const [raceProvisional, setRaceProvisional] = useState(false);
 
   // shifter state
   const [pos, setPos] = useState({ x: 189, y: NY });
@@ -79,17 +80,19 @@ export default function RaceTierSelect() {
         if (j.error) return;
         setCards(j.cards ?? []);
         setSol(j.sol ?? null);
+        setRaceProvisional(!!j.raceProvisional);
       })
       .catch(() => {});
   }, [owner, pending]);
 
-  // real room eligibility: provisional cards don't count toward paid rooms
+  // real room eligibility: provisional cards don't count toward paid rooms,
+  // except where the server lets them race (devnet flag)
   const roomCards = (room: number) =>
     (cards ?? []).filter(
       (c) => (c.rarity ?? "").toUpperCase() === ROOM_NAMES[room],
     );
   const eligible = (room: number) =>
-    roomCards(room).filter((c) => !c.provisional);
+    roomCards(room).filter((c) => !c.provisional || raceProvisional);
   const counts = ROOM_NAMES.map((_, i) => eligible(i).length);
   // every gate is seatable — an empty room just reads "NO CARS" and
   // CONTINUE stays dead (founder call 2026-10-08)

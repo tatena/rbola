@@ -155,24 +155,27 @@ export default function RaceCarSelect() {
   const vms = useMemo<CardVM[]>(() => {
     const pool = [...(cards ?? [])]
       .filter((c) =>
-        roomName == null
-          ? true
-          : (c.rarity ?? "").toUpperCase() === roomName,
+        roomName == null ? true : (c.rarity ?? "").toUpperCase() === roomName,
       )
       .sort((a, b) => (b.time ?? "").localeCompare(a.time ?? ""));
-    return pool.map((c) => ({
-      key: c.assetId,
-      name: stripPrefix(c.name),
-      img: c.photo,
-      num: `#${c.assetId.slice(-4).toUpperCase()}`,
-      rarity: c.provisional ? "SEALING" : (c.rarity ?? "RARE").toUpperCase(),
-      date: dateFor(c.time),
-      place: placeFor(c.lat, c.lon, c.assetId),
-      stats: statsFor(c.provisional ? null : c.stats),
-      provisional: !!c.provisional,
-      hasSpecs: c.stats != null,
-    }));
-  }, [cards, roomName]);
+    // devnet (server flag): provisional cards race like settled ones, so they
+    // show as normal cards; on mainnet the veil and gate return
+    return pool.map((c) => {
+      const veiled = !!c.provisional && !raceProvisional;
+      return {
+        key: c.assetId,
+        name: stripPrefix(c.name),
+        img: c.photo,
+        num: `#${c.assetId.slice(-4).toUpperCase()}`,
+        rarity: veiled ? "SEALING" : (c.rarity ?? "RARE").toUpperCase(),
+        date: dateFor(c.time),
+        place: placeFor(c.lat, c.lon, c.assetId),
+        stats: statsFor(veiled ? null : c.stats),
+        provisional: veiled,
+        hasSpecs: c.stats != null,
+      };
+    });
+  }, [cards, roomName, raceProvisional]);
 
   // ring geometry — identical to the garage (virtualized to 5 mounts)
   const N = vms.length;

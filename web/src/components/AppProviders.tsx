@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { PrivyProvider } from "@privy-io/react-auth";
+import { createSolanaRpc, createSolanaRpcSubscriptions } from "@solana/kit";
 import { useOwner } from "@/lib/useOwner";
 
 // App-wide auth (Privy, chosen in the wallet spike). Without the app id the
@@ -21,6 +22,17 @@ export default function AppProviders({
         appearance: { theme: "dark", accentColor: "#C9B37E" },
         embeddedWallets: {
           solana: { createOnLogin: "users-without-wallets" },
+        },
+        // the wallet needs an RPC for the chain it signs on (race entries are
+        // devnet transfers) — public endpoint, no API key in the client bundle
+        solana: {
+          rpcs: {
+            "solana:devnet": {
+              rpc: createSolanaRpc("https://api.devnet.solana.com"),
+              rpcSubscriptions: createSolanaRpcSubscriptions("wss://api.devnet.solana.com"),
+              blockExplorerUrl: "https://explorer.solana.com/?cluster=devnet",
+            },
+          },
         },
       }}
     >

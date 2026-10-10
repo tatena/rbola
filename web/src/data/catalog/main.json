@@ -1,4 +1,215 @@
 {
-  "version": "0",
-  "entries": []
+ "version": "1",
+ "entries": [
+  {
+   "spec_key": "audi-r8-type-4s-2nd-generation",
+   "make": "Audi",
+   "model": "R8",
+   "generation": "Type 4S (2nd generation)",
+   "years": "2015-2024",
+   "spec": {
+    "hp": 540,
+    "zero_to_100": 3.5,
+    "top_speed_kmh": 320,
+    "weight_kg": 1595
+   },
+   "rarity": "epic",
+   "status": "verified"
+  },
+  {
+   "spec_key": "audi-r8-v10-type-4s-2nd-gen",
+   "make": "Audi",
+   "model": "R8 V10",
+   "generation": "Type 4S (2nd gen)",
+   "years": "2015-2018",
+   "spec": {
+    "hp": 540,
+    "zero_to_100": 3.5,
+    "top_speed_kmh": 323,
+    "weight_kg": 1595
+   },
+   "rarity": "epic",
+   "status": "verified"
+  },
+  {
+   "spec_key": "bmw-2-series-f22-m235i",
+   "make": "BMW",
+   "model": "2 Series",
+   "generation": "F22 (M235i)",
+   "years": "2014-2016",
+   "spec": {
+    "hp": 326,
+    "zero_to_100": 5,
+    "top_speed_kmh": 250,
+    "weight_kg": 1455
+   },
+   "rarity": "scarce",
+   "status": "verified"
+  },
+  {
+   "spec_key": "bmw-3-series-g20",
+   "make": "BMW",
+   "model": "3 Series",
+   "generation": "G20",
+   "years": "2019-present",
+   "spec": {
+    "hp": 184,
+    "zero_to_100": 7.1,
+    "top_speed_kmh": 235,
+    "weight_kg": 1495
+   },
+   "rarity": "common",
+   "status": "verified"
+  },
+  {
+   "spec_key": "bmw-m3-f80",
+   "make": "BMW",
+   "model": "M3",
+   "generation": "F80",
+   "years": "2014-2018",
+   "spec": {
+    "hp": 431,
+    "zero_to_100": 4.1,
+    "top_speed_kmh": 250,
+    "weight_kg": 1595
+   },
+   "rarity": "scarce",
+   "status": "verified"
+  },
+  {
+   "spec_key": "ferrari-laferrari-laferrari-f150",
+   "make": "Ferrari",
+   "model": "LaFerrari",
+   "generation": "LaFerrari (F150)",
+   "years": "2013-2016",
+   "spec": {
+    "hp": 963,
+    "zero_to_100": 2.6,
+    "top_speed_kmh": 350,
+    "weight_kg": 1585
+   },
+   "rarity": "legendary",
+   "status": "verified"
+  },
+  {
+   "spec_key": "lamborghini-aventador-aventador-lp-700-4",
+   "make": "Lamborghini",
+   "model": "Aventador",
+   "generation": "Aventador LP 700-4",
+   "years": "2011-2016",
+   "spec": {
+    "hp": 700,
+    "zero_to_100": 2.9,
+    "top_speed_kmh": 350,
+    "weight_kg": 1575
+   },
+   "rarity": "epic",
+   "status": "verified"
+  },
+  {
+   "spec_key": "lamborghini-countach",
+   "make": "Lamborghini",
+   "model": "Countach",
+   "generation": null,
+   "years": null,
+   "spec": {
+    "hp": 455,
+    "zero_to_100": 4.9,
+    "top_speed_kmh": 295,
+    "weight_kg": 1490
+   },
+   "rarity": "legendary",
+   "status": "verified"
+  },
+  {
+   "spec_key": "lamborghini-hurac-n-hurac-n-tecnica",
+   "make": "Lamborghini",
+   "model": "Huracán",
+   "generation": "Huracán Tecnica",
+   "years": "2022-present",
+   "spec": {
+    "hp": 640,
+    "zero_to_100": 3.2,
+    "top_speed_kmh": 325,
+    "weight_kg": 1379
+   },
+   "rarity": "epic",
+   "status": "verified"
+  },
+  {
+   "spec_key": "lexus-nx-nx-ii-az20",
+   "make": "Lexus",
+   "model": "NX",
+   "generation": "NX II (AZ20)",
+   "years": "2021-present",
+   "spec": {
+    "hp": 205,
+    "zero_to_100": 9.2,
+    "top_speed_kmh": 190,
+    "weight_kg": 1680
+   },
+   "rarity": "common",
+   "status": "verified"
+  },
+  {
+   "spec_key": "mercedes-amg-gt-amg-gt-r-c190",
+   "make": "Mercedes-AMG",
+   "model": "GT",
+   "generation": "AMG GT R (C190)",
+   "years": "2016-2021",
+   "spec": {
+    "hp": 585,
+    "zero_to_100": 3.6,
+    "top_speed_kmh": 318,
+    "weight_kg": 1630
+   },
+   "rarity": "epic",
+   "status": "verified"
+  },
+  {
+   "spec_key": "morgan-plus-four-plus-four-cx-generation",
+   "make": "Morgan",
+   "model": "Plus Four",
+   "generation": "Plus Four (CX-generation)",
+   "years": "2020–present",
+   "spec": {
+    "hp": 255,
+    "zero_to_100": 4.8,
+    "top_speed_kmh": 241,
+    "weight_kg": 1009
+   },
+   "rarity": "epic",
+   "status": "verified"
+  },
+  {
+   "spec_key": "porsche-911-gt2-rs-991-2-gt2-rs",
+   "make": "Porsche",
+   "model": "911 GT2 RS",
+   "generation": "991.2 GT2 RS",
+   "years": "2017-2019",
+   "spec": {
+    "hp": 700,
+    "zero_to_100": 2.8,
+    "top_speed_kmh": 340,
+    "weight_kg": 1470
+   },
+   "rarity": "epic",
+   "status": "verified"
+  },
+  {
+   "spec_key": "porsche-911-gt3-rs",
+   "make": "Porsche",
+   "model": "911 GT3 RS",
+   "generation": "992",
+   "years": "2022–present",
+   "spec": {
+    "hp": 525,
+    "zero_to_100": 3.2,
+    "top_speed_kmh": 296,
+    "weight_kg": 1450
+   },
+   "rarity": "epic",
+   "status": "verified"
+  }
+ ]
 }
