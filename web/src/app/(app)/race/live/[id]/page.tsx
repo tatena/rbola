@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useRouter } from "next/navigation";
 import { useRaceWatch, type RaceView } from "@/lib/useRaceEntry";
@@ -22,7 +22,14 @@ const TRACK_ART: Record<string, string> = {
   "DRAG STRIP": "/tracks/drag.jpg",
 };
 
+// race footage per track (founder-generated, H.264 portrait crop); tracks
+// without one fall back to the track-art push
+const TRACK_VIDEO: Record<string, string> = {
+  "MOUNTAIN PASS": "/races/mountain.mp4",
+};
+
 const RACE_MS = 4200;
+const VIDEO_MAX_MS = 16000; // safety net if the footage stalls
 const seenKey = (id: string) => `rbola.race.seen.${id}`;
 
 const sol = (lamports: number) => {
@@ -58,12 +65,12 @@ const MATCH_STEPS: Array<[number, Beat]> = [
   [7600, "go"],
   [9200, "out"],
   [10300, "race"],
-  [10300 + RACE_MS, "result"],
 ];
 
 // plays the sequence once per entry per tab, then rests on the result; a
 // reload after the result skips straight to it (per-tab convenience only)
-function useTheatre(id: string, matched: boolean) {
+// the race beat ends on its own clock (art) or when the footage ends (video)
+function useTheatre(id: string, matched: boolean, video: boolean) {
   const [beat, setBeat] = useState<Beat>("reset");
   useEffect(() => {
     const t = setTimeout(
@@ -78,23 +85,31 @@ function useTheatre(id: string, matched: boolean) {
     try {
       seen = sessionStorage.getItem(seenKey(id)) === "1";
     } catch {}
-    const steps: Array<[number, Beat]> = seen ? [[0, "result"]] : MATCH_STEPS;
+    const end = 10300 + (video ? VIDEO_MAX_MS : RACE_MS);
+    const steps: Array<[number, Beat]> = seen
+      ? [[0, "result"]]
+      : [...MATCH_STEPS, [end, "result"]];
     const timers = steps.map(([ms, b]) => setTimeout(() => setBeat(b), ms));
     return () => timers.forEach(clearTimeout);
-  }, [id, matched]);
+  }, [id, matched, video]);
   useEffect(() => {
     if (beat !== "result") return;
     try {
       sessionStorage.setItem(seenKey(id), "1");
     } catch {}
   }, [beat, id]);
-  return beat;
+  const finish = useCallback(
+    () => setBeat((b) => (b === "race" ? "result" : b)),
+    [],
+  );
+  return { beat, finish };
 }
 
 export default function RaceLive() {
   const { id } = useParams<{ id: string }>();
   const { view, error, cancel, cancelling } = useRaceWatch(id);
-  const beat = useTheatre(id, view?.status === "matched");
+  const video = view ? TRACK_VIDEO[view.track] : undefined;
+  const { beat, finish } = useTheatre(id, view?.status === "matched", !!video);
 
   if (!view) {
     return error ? (
@@ -107,7 +122,14 @@ export default function RaceLive() {
   // the race beat escapes the page-enter transform (which would trap
   // position:fixed) and covers the nav
   if (beat === "race")
-    return createPortal(<RaceBeat view={view} />, document.body);
+    return createPortal(
+      video ? (
+        <RaceFootage src={video} onDone={finish} />
+      ) : (
+        <RaceBeat view={view} />
+      ),
+      document.body,
+    );
   if (beat === "result" && view.status === "matched")
     return <Result view={view} />;
   return (
@@ -118,6 +140,7 @@ export default function RaceLive() {
       }
       cancel={cancel}
       cancelling={cancelling}
+      preload={view.status === "matched" ? video : undefined}
     />
   );
 }
@@ -137,11 +160,13 @@ function Matchmaking({
   beat,
   cancel,
   cancelling,
+  preload,
 }: {
   view: RaceView;
   beat: Beat;
   cancel: () => void;
   cancelling: boolean;
+  preload?: string; // race footage, fetched during VS so it starts instantly
 }) {
   const has = (...b: Beat[]) => b.includes(beat);
   const searching = has("reset", "search");
@@ -438,6 +463,16 @@ function Matchmaking({
         </div>
       </div>
 
+      {preload && (
+        <video
+          src={preload}
+          muted
+          playsInline
+          preload="auto"
+          className="hidden"
+        />
+      )}
+
       {/* fade to black into the race (the nav stays) */}
       <div
         className="pointer-events-none absolute inset-0 z-[7] bg-[#0A0A0F]"
@@ -576,6 +611,47 @@ function Badge({
     >
       {children.toUpperCase()}
     </span>
+  );
+}
+
+// ---------- RACE — the track's footage, start to finish ----------
+
+function RaceFootage({ src, onDone }: { src: string; onDone: () => void }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [fading, setFading] = useState(false);
+  useEffect(() => {
+    // autoplay can be refused (e.g. iOS low-power mode): skip to the result
+    ref.current?.play().catch(onDone);
+  }, [onDone]);
+  return (
+    <div className="fixed inset-0 z-30 mx-auto w-full max-w-[430px] overflow-hidden bg-[#07070A]">
+      <video
+        ref={ref}
+        src={src}
+        muted
+        playsInline
+        autoPlay
+        preload="auto"
+        className="absolute inset-0 h-full w-full object-cover"
+        onTimeUpdate={(e) => {
+          const v = e.currentTarget;
+          if (v.duration && v.duration - v.currentTime < 0.6) setFading(true);
+        }}
+        onEnded={onDone}
+        onError={onDone}
+      />
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse at 50% 50%,rgba(7,7,10,0) 45%,rgba(7,7,10,.6) 100%)",
+        }}
+      />
+      <div
+        className="absolute inset-0 bg-[#0A0A0F]"
+        style={{ transition: "opacity .5s ease", opacity: fading ? 1 : 0 }}
+      />
+    </div>
   );
 }
 
