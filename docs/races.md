@@ -89,7 +89,7 @@ Scripted end-to-end with two test wallets against the running app:
 - `web/src/lib/raceLedger.ts` — ledger (`web/data/races.json`), lock, flows, payouts.
 - `web/src/lib/raceWallet.ts` — race wallet, entry-tx build/verify, payout send.
 - `web/src/lib/useRaceEntry.ts` — client: `enter()` creates → signs → confirms and resolves with the entry id; `useRaceWatch(id)` polls it and exposes cancel.
-- `web/src/app/(app)/race/live/[id]/` — post-commit screens keyed by entry id (survive reload): SEARCHING (cancel = full refund) → VS reveal → race beat → RESULT (SOL line + payout tx on Explorer).
+- `web/src/app/(app)/race/live/[id]/` — post-commit screens keyed by entry id (survive reload): MATCHMAKING (Claude Design "Matchmaking v3": empty rival seat + your card, LEAVE = cancel/full refund; on match the rival card drops face-down, flips, driver name lands) → race beat → RESULT (SOL line + payout tx on Explorer).
 - `web/data/house-cars.json` — house roster, rotated deterministically per room.
 
 ## Known limits (v0)
