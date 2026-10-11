@@ -1,15 +1,39 @@
-app.rbola.fun {
+{
+	# no admin API: any local user (incl. the app users) could otherwise rewrite
+	# the proxy config via localhost:2019. Consequence: `systemctl reload caddy`
+	# (ExecReload = caddy reload, which talks to the admin API) no longer works —
+	# apply config changes with `systemctl restart caddy`.
+	admin off
+}
+
+(common) {
 	encode zstd gzip
-	request_body {
-		max_size 25MB
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "camera=(self), geolocation=(self), microphone=(), payment=()"
+		-Server
+		-X-Powered-By
 	}
-	reverse_proxy localhost:3000
+	# photo uploads (catch + verify) get 12MB; everything else 1MB
+	@upload path /api/catch /api/verify
+	@other not path /api/catch /api/verify
+	request_body @upload {
+		max_size 12MB
+	}
+	request_body @other {
+		max_size 1MB
+	}
+}
+
+app.rbola.fun {
+	import common
+	reverse_proxy 127.0.0.1:3000
 }
 
 staging.rbola.fun {
-	encode zstd gzip
-	request_body {
-		max_size 25MB
-	}
-	reverse_proxy localhost:3001
+	import common
+	reverse_proxy 127.0.0.1:3001
 }

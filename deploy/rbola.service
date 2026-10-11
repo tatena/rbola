@@ -1,15 +1,30 @@
 [Unit]
-Description=RBOLA web app
+Description=RBOLA web app (prod, mainnet)
 After=network.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 User=rbola
-WorkingDirectory=/srv/rbola/app/web
+Group=rbola
+# releases are switched atomically via the current symlink (see deploy.sh)
+WorkingDirectory=/srv/rbola/current/web
 EnvironmentFile=/srv/rbola/env
-Environment=NODE_ENV=production PORT=3000
-ExecStart=/usr/bin/npm start
-Restart=always
+Environment=NODE_ENV=production PORT=3000 HOSTNAME=127.0.0.1 NEXT_TELEMETRY_DISABLED=1
+# loopback only — Caddy is the sole public entry. `next start` ignores HOSTNAME
+# (only PORT is read from env), so the bind address is passed with -H.
+ExecStart=/usr/bin/node node_modules/next/dist/bin/next start -H 127.0.0.1
+Restart=on-failure
 RestartSec=3
+MemoryMax=1200M
+
+# sandbox: whole FS read-only except the data dir and the releases tree (only each
+# release's .next/cache is owned by the app user, so that's all it can actually write)
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/srv/rbola/data /srv/rbola/releases
 
 [Install]
 WantedBy=multi-user.target

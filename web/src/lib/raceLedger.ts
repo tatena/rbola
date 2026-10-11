@@ -121,6 +121,9 @@ export function raceError(err: unknown) {
   if (err instanceof RaceError) {
     return NextResponse.json({ error: err.message }, { status: err.status });
   }
+  if (err instanceof SyntaxError) {
+    return NextResponse.json({ error: "invalid request" }, { status: 400 }); // malformed JSON body
+  }
   console.error("race api", err);
   return NextResponse.json({ error: "race server error" }, { status: 500 });
 }

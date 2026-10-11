@@ -1,0 +1,8 @@
+/var/log/rbola-*.log {
+	su root syslog
+	weekly
+	rotate 8
+	compress
+	missingok
+	notifempty
+}

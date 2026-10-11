@@ -24,6 +24,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ tx: await buildWithdrawTx(from, dest.toBase58(), lamports) });
   } catch (err) {
     if (err instanceof AuthError) return authError(err);
+    if (err instanceof SyntaxError) return NextResponse.json({ error: "invalid request" }, { status: 400 });
     console.error("withdraw", err);
     return NextResponse.json({ error: "couldn't build the transfer" }, { status: 500 });
   }
