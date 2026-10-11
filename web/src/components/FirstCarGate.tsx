@@ -12,9 +12,6 @@ const marcellus = Marcellus({ weight: "400", subsets: ["latin"] });
 // the dev-only bulk upload tool
 export const GATE_OPEN = ["/catch", "/upload"];
 
-const CAM_ICON =
-  "M3 8.5A1.5 1.5 0 0 1 4.5 7h2.6l1.6-2.2h6.6L16.9 7h2.6A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5zM12 15.6a3.3 3.3 0 1 0 0-6.6 3.3 3.3 0 0 0 0 6.6z";
-
 // Full-screen gate per Claude Design "RBOLA No Car Gate": drifting grayscale
 // hero, glass card with the breathing R mark, CAPTURE above the nav.
 export default function FirstCarGate({ children }: { children: React.ReactNode }) {
@@ -24,6 +21,9 @@ export default function FirstCarGate({ children }: { children: React.ReactNode }
   const { authenticated } = useOwner();
   const { login } = useAuthActions();
   const [opening, setOpening] = useState(false);
+  // signed out: the gate's button signs in first; the gate then re-checks
+  // the wallet's garage (returning players go straight through)
+  const signIn = hasAuth && !authenticated;
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -43,9 +43,12 @@ export default function FirstCarGate({ children }: { children: React.ReactNode }
       {/* hero: grayscale car, slow drift, scrim into the base color */}
       <div className="absolute inset-0 overflow-hidden" aria-hidden>
         <div
-          className="gate-drift absolute inset-0 bg-cover bg-center"
+          className="gate-drift absolute inset-0 bg-no-repeat"
           style={{
             backgroundImage: "url(/gate-hero.jpg)",
+            // zoomed past cover so the photo's dark studio ceiling crops off the top
+            backgroundSize: "auto 128%",
+            backgroundPosition: "50% 78%",
             transformOrigin: "50% 43%",
             filter: "grayscale(1) brightness(.62) contrast(1.3)",
           }}
@@ -54,7 +57,7 @@ export default function FirstCarGate({ children }: { children: React.ReactNode }
           className="absolute inset-0"
           style={{
             background:
-              "linear-gradient(180deg,rgba(10,10,15,.55) 0%,rgba(10,10,15,.35) 35%,rgba(10,10,15,.6) 60%,#0A0A0F 84%)",
+              "linear-gradient(180deg,rgba(10,10,15,.2) 0%,rgba(10,10,15,.1) 35%,rgba(10,10,15,.5) 62%,#0A0A0F 86%)",
           }}
         />
       </div>
@@ -66,9 +69,10 @@ export default function FirstCarGate({ children }: { children: React.ReactNode }
           style={{
             width: 244,
             height: "min(400px, 100%)",
-            background: "rgba(14,14,20,.8)",
-            backdropFilter: "blur(22px) saturate(.8)",
-            WebkitBackdropFilter: "blur(22px) saturate(.8)",
+            // smoked glass: the car still reads through the card
+            background: "rgba(14,14,20,.45)",
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
             border: ".75px solid rgba(233,231,226,.5)",
             boxShadow: "0 34px 70px rgba(0,0,0,.7)",
           }}
@@ -106,30 +110,19 @@ export default function FirstCarGate({ children }: { children: React.ReactNode }
 
       <div className="gate-rise absolute inset-x-6" style={{ bottom: 122, animationDelay: ".45s" }}>
         <button
-          onClick={goCatch}
-          aria-label="Catch a car"
-          className="flex h-14 w-full items-center justify-center gap-3 rounded-[15px] transition-[background] duration-[250ms] hover:bg-[#1A1A21] active:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          onClick={signIn ? login : goCatch}
+          aria-label={signIn ? "Log in" : "Catch a car"}
+          className="flex h-14 w-full items-center justify-center rounded-[15px] transition-[background] duration-[250ms] hover:bg-[#1A1A21] active:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           style={{
             background: opening ? "#1A1A21" : "#14141A",
             border: "1px solid rgba(201,179,126,.6)",
             boxShadow: "0 10px 30px rgba(0,0,0,.5),inset 0 .5px 0 rgba(255,255,255,.08)",
           }}
         >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="block text-accent" aria-hidden>
-            <path d={CAM_ICON} stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <span className="font-mono text-[12px] font-semibold leading-none tracking-[.3em]">CAPTURE</span>
+          <span className="pl-[.3em] font-mono text-[12px] leading-none tracking-[.3em]">
+            {signIn ? "LOG IN" : "CAPTURE"}
+          </span>
         </button>
-
-        {/* returning players on a fresh device: their cards are behind sign-in */}
-        {hasAuth && !authenticated && (
-          <button
-            onClick={login}
-            className="absolute inset-x-0 top-full mx-auto mt-3 block font-mono text-[9px] tracking-[.2em] text-[rgba(242,241,238,.34)]"
-          >
-            ALREADY CATCHING? SIGN IN
-          </button>
-        )}
       </div>
 
       <div
