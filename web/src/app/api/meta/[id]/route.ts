@@ -12,7 +12,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  if (!/^[a-f0-9]{16}$/.test(id)) {
+  if (!/^[a-z0-9]+$/.test(id)) {
     return NextResponse.json({ error: "bad id" }, { status: 400 });
   }
   const p = path.join(CATCHES_DIR, `${id}.json`);
