@@ -39,7 +39,7 @@ type CardVM = {
 };
 
 const ROOM_NAMES = ["COMMON", "SCARCE", "RARE", "EPIC", "LEGENDARY"];
-const FEES = [0.01, 0.02, 0.05, 0.1, 0.25];
+const FEES = [0.001, 0.002, 0.005, 0.01, 0.02]; // = FEE_LAMPORTS in lib/race.ts
 
 // race stats are SPEED/ACCEL/HANDLING only (deterministic lock) — the same
 // catalog-derived values the race engine scores with
@@ -310,7 +310,7 @@ export default function RaceCarSelect() {
               ? "SPECS NOT SETTLED"
               : isPractice
                 ? "PRACTICE"
-                : `ENTER · ${fee.toFixed(2)} SOL`;
+                : `ENTER · ${+fee.toFixed(4)} SOL`;
 
   // commit → the live screen (searching → VS → race → result), keyed by the
   // entry id so it survives a reload
@@ -368,7 +368,7 @@ export default function RaceCarSelect() {
         >
           <span className="h-[5px] w-[5px] rotate-45 rounded-[1px] bg-foreground/55" />
           <span className="font-mono text-[10.5px] font-medium text-foreground">
-            {sol === null ? "—" : sol.toFixed(2)}
+            {sol === null ? "—" : +sol.toFixed(4)}
           </span>
         </div>
       </div>

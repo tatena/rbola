@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { displayName, hasAuth, shortAddress, useOwner } from "@/lib/useOwner";
+import WalletActions, { copyText } from "./WalletActions";
 
 // Profile (ME) screen — design_handoff_camera_screen prototype, screen 1e.
 // All real: SOL balance + cars (/api/garage), win rate / races / wins /
 // streak + race rows (/api/race/stats, paid races only in the numbers;
-// practice shows in activity). No token — SOL only. No withdraw in the
-// devnet beta.
+// practice shows in activity). No token — SOL only. ADD SOL / WITHDRAW
+// move real SOL in and out of the player's own wallet (WalletActions).
 
 type ApiCard = {
   assetId: string;
@@ -120,6 +121,8 @@ export default function MePage() {
   // logged-out fallback must never show for an authenticated user
   const { owner, pending, authenticated, email } = useOwner();
   const name = displayName(email);
+  const [reload, setReload] = useState(0);
+  const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (pending) return;
     setCards(null);
@@ -141,7 +144,7 @@ export default function MePage() {
         if (!j.error) setRace({ key, stats: j });
       })
       .catch(() => {});
-  }, [owner, pending]);
+  }, [owner, pending, reload]);
   const raceStats = race && race.key === (owner ?? "") ? race.stats : null;
 
   const mintRows: ActivityRow[] = (cards ?? [])
@@ -166,7 +169,7 @@ export default function MePage() {
   const balances: { label: string; value: React.ReactNode; gold: boolean }[] = [
     {
       label: "SOL",
-      value: loading ? <Sk w={44} h={15} /> : (sol?.toFixed(2) ?? "—"),
+      value: loading ? <Sk w={44} h={15} /> : sol === null ? "—" : String(+sol.toFixed(4)),
       gold: false,
     },
     {
@@ -226,16 +229,26 @@ export default function MePage() {
           <span className="text-[19px] leading-[1.1] tracking-[-.005em] text-foreground-bright">
             {name}
           </span>
-          <span
-            className="font-mono text-[9px] leading-none tracking-[.14em]"
-            style={{ color: "rgba(242,241,238,.34)" }}
-          >
-            {owner
-              ? shortAddress(owner)
-              : authenticated
-                ? "WALLET CREATING…"
-                : "NOT LOGGED IN"}
-          </span>
+          {owner ? (
+            <button
+              onClick={() => {
+                copyText(owner);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1600);
+              }}
+              className="self-start font-mono text-[9px] leading-none tracking-[.14em]"
+              style={{ color: copied ? "#C9B37E" : "rgba(242,241,238,.34)" }}
+            >
+              {copied ? "ADDRESS COPIED" : `${shortAddress(owner)} · COPY`}
+            </button>
+          ) : (
+            <span
+              className="font-mono text-[9px] leading-none tracking-[.14em]"
+              style={{ color: "rgba(242,241,238,.34)" }}
+            >
+              {authenticated ? "WALLET CREATING…" : "NOT LOGGED IN"}
+            </span>
+          )}
         </span>
         {hasAuth && <SessionPill />}
       </div>
@@ -339,6 +352,13 @@ export default function MePage() {
             </div>
           )}
         </div>
+      )}
+      {hasAuth && owner && (
+        <WalletActions
+          owner={owner}
+          lamports={sol === null ? null : Math.round(sol * 1e9)}
+          onSent={() => setTimeout(() => setReload((n) => n + 1), 1500)}
+        />
       )}
     </div>
   );

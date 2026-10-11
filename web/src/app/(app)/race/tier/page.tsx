@@ -36,11 +36,11 @@ type Gate = {
 };
 
 const GATES: Gate[] = [
-  { key: 0, name: "COMMON", stake: "0.01 SOL", col: 0, row: "top" },
-  { key: 1, name: "SCARCE", stake: "0.02 SOL", col: 0, row: "bot" },
-  { key: 2, name: "RARE", stake: "0.05 SOL", col: 1, row: "top" },
-  { key: 3, name: "EPIC", stake: "0.10 SOL", col: 1, row: "bot" },
-  { key: 4, name: "LEGENDARY", stake: "0.25 SOL", col: 2, row: "top" },
+  { key: 0, name: "COMMON", stake: "0.001 SOL", col: 0, row: "top" },
+  { key: 1, name: "SCARCE", stake: "0.002 SOL", col: 0, row: "bot" },
+  { key: 2, name: "RARE", stake: "0.005 SOL", col: 1, row: "top" },
+  { key: 3, name: "EPIC", stake: "0.01 SOL", col: 1, row: "bot" },
+  { key: 4, name: "LEGENDARY", stake: "0.02 SOL", col: 2, row: "top" },
   { key: "R", name: "R", stake: "FREE PRACTICE", col: 2, row: "bot" },
 ];
 
@@ -240,7 +240,7 @@ export default function RaceTierSelect() {
         >
           <span className="h-[5px] w-[5px] rotate-45 rounded-[1px] bg-foreground/55" />
           <span className="font-mono text-[10.5px] font-medium text-foreground">
-            {sol === null ? "—" : sol.toFixed(2)}
+            {sol === null ? "—" : +sol.toFixed(4)}
           </span>
         </div>
       </div>

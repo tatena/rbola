@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSignTransaction, useWallets } from "@privy-io/react-auth/solana";
 import { authHeaders } from "@/lib/authHeaders";
 import { hasAuth } from "@/lib/useOwner";
+import { CHAIN } from "@/lib/cluster";
 
 // Race entry client: create entry → the player's wallet signs the server-built
 // entry transfer → server broadcasts + queues. `enter` resolves with the entry
@@ -17,7 +18,8 @@ export type RaceView = {
   track: string;
   room: string;
   fee: number;
-  car: { name: string; photo: string | null; rarity: string | null };
+  car: { assetId: string | null; name: string; photo: string | null; rarity: string | null };
+  reason: "left" | "no_rival" | null; // why a cancelled entry ended
   paySig: string | null;
   opponent: { name: string; photo: string | null; rarity: string | null; driver: string } | null;
   result: { outcome: "win" | "loss" | "tie"; score: number; opponentScore: number } | null;
@@ -45,7 +47,7 @@ function useRaceEntryWithPrivy() {
     const { signedTransaction } = await signTransaction({
       transaction: tx,
       wallet,
-      chain: "solana:devnet",
+      chain: CHAIN,
     });
     return signedTransaction;
   };

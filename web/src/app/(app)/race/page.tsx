@@ -134,7 +134,7 @@ export default function RaceTrackSelect() {
         >
           <span className="h-[5px] w-[5px] rotate-45 rounded-[1px] bg-foreground/55" />
           <span className="font-mono text-[10.5px] font-medium text-foreground">
-            {sol === null ? "—" : sol.toFixed(2)}
+            {sol === null ? "—" : +sol.toFixed(4)}
           </span>
         </div>
       </div>

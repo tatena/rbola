@@ -1,9 +1,10 @@
 // Race wallet — the server keypair that holds pots (separate from the mint
 // payer: pots never mix with gas money). Entries are SOL transfers player →
 // race wallet; payouts/refunds are transfers race wallet → player. Every
-// movement is a real devnet transaction. Never put RACE_KEYPAIR_PATH in Vercel.
+// movement is a real on-chain transaction. Never put RACE_KEYPAIR_PATH in Vercel.
 
 import fs from "node:fs";
+import { heliusRpc } from "@/lib/cluster";
 import {
   Connection,
   Keypair,
@@ -17,10 +18,7 @@ const MEMO_PROGRAM = new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
 
 let conn: Connection | null = null;
 export function connection(): Connection {
-  conn ??= new Connection(
-    `https://devnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`,
-    "confirmed",
-  );
+  conn ??= new Connection(heliusRpc(), "confirmed");
   return conn;
 }
 
@@ -61,6 +59,30 @@ export async function buildEntryTx(owner: string, lamports: number, memo: string
     message: tx.serializeMessage().toString("base64"),
     lastValidBlockHeight,
   };
+}
+
+// A player's own withdrawal: their wallet → any address, built here (server
+// RPC) and signed + sent by their wallet. RBOLA never holds these funds.
+export async function buildWithdrawTx(owner: string, to: string, lamports: number) {
+  const { blockhash } = await connection().getLatestBlockhash("confirmed");
+  const payer = new PublicKey(owner);
+  const tx = transferTx(payer, new PublicKey(to), lamports, "rbola withdraw");
+  tx.feePayer = payer;
+  tx.recentBlockhash = blockhash;
+  return tx.serialize({ requireAllSignatures: false }).toString("base64");
+}
+
+// The signature a player-signed entry would land under, if it is the issued
+// message with a valid signature (else null: it can never land as an entry).
+export function signatureOf(signedB64: string, expectedMessage: string): string | null {
+  try {
+    const tx = Transaction.from(Buffer.from(signedB64, "base64"));
+    if (tx.serializeMessage().toString("base64") !== expectedMessage) return null;
+    if (!tx.verifySignatures()) return null;
+    return bs58(tx.signature!);
+  } catch {
+    return null;
+  }
 }
 
 // Broadcast a player-signed entry transfer after checking it is exactly the

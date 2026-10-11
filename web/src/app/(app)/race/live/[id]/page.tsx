@@ -3,14 +3,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useRouter } from "next/navigation";
-import { useRaceWatch, type RaceView } from "@/lib/useRaceEntry";
+import { useRaceEntry, useRaceWatch, type RaceView } from "@/lib/useRaceEntry";
+import { useOwner } from "@/lib/useOwner";
 import { Marcellus } from "next/font/google";
 import {
   TRACK_VIDEO,
   footageElement,
   primeFootage,
+  unlockFootage,
   type Footage,
 } from "@/lib/raceFootage";
+import { explorerTx } from "@/lib/cluster";
 import "../live.css";
 
 const marcellus = Marcellus({ weight: "400", subsets: ["latin"] });
@@ -32,13 +35,8 @@ const RACE_MS = 4200;
 const STALL_MS = 8000; // footage that stops making progress hands over to the result
 const seenKey = (id: string) => `rbola.race.seen.${id}`;
 
-const sol = (lamports: number) => {
-  const s = (lamports / 1e9).toFixed(3);
-  return s.endsWith("0") ? s.slice(0, -1) : s;
-};
-
-const explorer = (sig: string) =>
-  `https://explorer.solana.com/tx/${sig}?cluster=devnet`;
+// up to 4 decimals, trailing zeros dropped (0.0017, 0.001, 0.02)
+const sol = (lamports: number) => String(+(lamports / 1e9).toFixed(4));
 
 // Matchmaking v3 (Claude Design, 10-10): one stage from SEARCHING to the
 // race. The empty seat waits on the right while your card sits forward-left;
@@ -781,9 +779,11 @@ function Result({ view }: { view: RaceView }) {
 
 function Left({ view }: { view: RaceView }) {
   const p = view.payout;
+  const noRival = view.reason === "no_rival";
   return (
     <Ending
-      headline="Left the queue"
+      headline={noRival ? "No rival on the line" : "Left the queue"}
+      action={noRival && view.car.assetId ? <HouseRace view={view} /> : null}
       art={TRACK_ART[view.track]}
       money={
         p && view.fee > 0 ? (
@@ -795,20 +795,57 @@ function Left({ view }: { view: RaceView }) {
   );
 }
 
+// paid search came back empty (refunded): run the same car on the same
+// track against a house car, free — the race is never out of reach
+function HouseRace({ view }: { view: RaceView }) {
+  const router = useRouter();
+  const { owner } = useOwner();
+  const race = useRaceEntry();
+  const go = async () => {
+    unlockFootage(view.track); // inside the tap, before any await (sound)
+    const id = await race.enter({
+      owner,
+      assetId: view.car.assetId!,
+      track: view.track,
+      room: "practice",
+    });
+    if (id) router.push(`/race/live/${id}`);
+  };
+  const busy = race.phase === "entering";
+  return (
+    <button
+      onClick={go}
+      disabled={busy}
+      className="rl-fade mb-3 flex h-[54px] w-full items-center justify-center rounded-[15px] transition-transform active:scale-[.97] disabled:opacity-60"
+      style={{
+        animationDelay: ".6s",
+        background: "rgba(201,179,126,.1)",
+        border: "1px solid rgba(201,179,126,.6)",
+      }}
+    >
+      <span className="pl-[.3em] font-mono text-[12px] font-semibold tracking-[.3em] text-accent">
+        {busy ? "STARTING" : race.error ? "TRY AGAIN" : "RACE THE HOUSE · FREE"}
+      </span>
+    </button>
+  );
+}
+
 // the shared resting frame: image up top, one headline, one money line,
-// a quiet receipt link, RACE AGAIN
+// a quiet receipt link, an optional action, RACE AGAIN
 function Ending({
   headline,
   hero,
   art,
   money,
   link,
+  action,
 }: {
   headline: string;
   hero?: string | null;
   art?: string;
   money?: React.ReactNode;
   link?: RaceView["payout"];
+  action?: React.ReactNode;
 }) {
   const router = useRouter();
   const again = () => {
@@ -866,7 +903,7 @@ function Ending({
           <div className="rl-fade h-[14px]" style={{ animationDelay: "1.4s" }}>
             {link.status === "sent" && link.sig ? (
               <a
-                href={explorer(link.sig)}
+                href={explorerTx(link.sig)}
                 target="_blank"
                 rel="noreferrer"
                 className="font-mono text-[9px] tracking-[.22em] text-foreground/40 transition-colors hover:text-foreground/70"
@@ -883,6 +920,7 @@ function Ending({
       </div>
 
       <div className="relative px-5">
+        {action}
         <button
           onClick={again}
           className="rl-fade flex h-[54px] w-full items-center justify-center rounded-[15px] transition-transform active:scale-[.97] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"

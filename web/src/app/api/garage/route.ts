@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import { REGISTRY_PATH } from "@/lib/dataDir";
+import { heliusRpc } from "@/lib/cluster";
 import { NextResponse } from "next/server";
 import { deriveStats, getEntry } from "@/lib/catalog";
 
@@ -26,7 +27,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ total: 0, cards: [], sol: null });
   }
   const owner = valid ? qOwner : process.env.CATCH_OWNER;
-  const rpc = `https://devnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`;
+  const rpc = heliusRpc();
   const call = (body: object) =>
     fetch(rpc, {
       method: "POST",

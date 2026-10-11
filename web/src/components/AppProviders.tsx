@@ -5,6 +5,7 @@ import { PrivyProvider } from "@privy-io/react-auth";
 import { createSolanaRpc, createSolanaRpcSubscriptions } from "@solana/kit";
 import { authHeaders } from "@/lib/authHeaders";
 import { useOwner } from "@/lib/useOwner";
+import { CHAIN, CLUSTER, PUBLIC_RPC, explorerHome } from "@/lib/cluster";
 
 // App-wide auth (Privy, chosen in the wallet spike). Without the app id the
 // app still renders — screens hide their auth controls via hasAuth.
@@ -24,14 +25,14 @@ export default function AppProviders({
         embeddedWallets: {
           solana: { createOnLogin: "users-without-wallets" },
         },
-        // the wallet needs an RPC for the chain it signs on (race entries are
-        // devnet transfers) — public endpoint, no API key in the client bundle
+        // the wallet needs an RPC for the chain it signs on (race entries) —
+        // public endpoint or a domain-locked key, never the server's key
         solana: {
           rpcs: {
-            "solana:devnet": {
-              rpc: createSolanaRpc("https://api.devnet.solana.com"),
-              rpcSubscriptions: createSolanaRpcSubscriptions("wss://api.devnet.solana.com"),
-              blockExplorerUrl: "https://explorer.solana.com/?cluster=devnet",
+            [CHAIN]: {
+              rpc: createSolanaRpc(PUBLIC_RPC),
+              rpcSubscriptions: createSolanaRpcSubscriptions(PUBLIC_RPC.replace(/^http/, "ws")),
+              blockExplorerUrl: explorerHome,
             },
           },
         },
@@ -48,7 +49,7 @@ export default function AppProviders({
 function StarterSol() {
   const { owner } = useOwner();
   useEffect(() => {
-    if (!owner) return;
+    if (!owner || CLUSTER !== "devnet") return; // no faucet on mainnet
     const key = `rbola.starter.${owner}`;
     try {
       if (localStorage.getItem(key)) return;

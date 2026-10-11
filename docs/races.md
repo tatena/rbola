@@ -3,7 +3,8 @@
 Cards race for SOL. Two players who chose the same track and the same rarity
 room each pay the room's entry fee; the car whose real specs suit that ground
 better takes the pot, minus a 15% rake. This document describes how the race
-backend works on devnet today.
+backend works. One build runs on devnet (staging.rbola.fun) or mainnet
+(app.rbola.fun), chosen by `NEXT_PUBLIC_SOLANA_CLUSTER` (`web/src/lib/cluster.ts`).
 
 ## The game in one paragraph
 
@@ -21,7 +22,8 @@ same track always produce the same result.
 | HIGHWAY RUN | 0.5 | 0.3 | 0.2 |
 | DRAG STRIP | 0.3 | 0.6 | 0.1 |
 
-Fee ladder (devnet demo values): 0.01 / 0.02 / 0.05 / 0.10 / 0.25 SOL.
+Fee ladder (mainnet launch, founder call 10-11): 0.001 / 0.002 / 0.005 / 0.01 / 0.02 SOL.
+Paid rooms are player vs player only; the house car races only in free practice.
 
 ## Architecture
 
@@ -41,7 +43,7 @@ player wallet (Privy) signs
                         → broadcast → confirmed → queue (track, room)
                         → FIFO match with another wallet, or wait
 client polls ───────▶ GET /api/race/entry/:id
-                        no rival after ~20s → a house car takes the seat
+                        no rival after ~60s → full refund (no house in paid rooms)
                         match → resolve → payout from the race wallet
 ```
 
@@ -65,9 +67,8 @@ won and net, practice counted apart, and recent races for the activity list.
 - Win: the winner receives `2 × fee × 85%` (the remaining 15% is the rake).
 - Exact tie: both entries are refunded in full, with no rake taken.
 - Cancel while searching: full refund.
-- House opponent (devnet only): seats after ~20s with no rival and stakes a
-  ledger-only entry. If the player wins they're paid the normal winner's take.
-  If the house wins, the player's entry stays in the race wallet.
+- No rival within 60s: the entry is refunded in full and the ending screen
+  offers the same car on the same track against a house car, free (practice).
 - Practice: free, instant, against a house car, any card. No SOL moves.
 
 ## Verified on devnet (2026-10-10)
@@ -99,11 +100,17 @@ Scripted end-to-end with two test wallets against the running app:
   confirm or cancel your own entry. Logged out = practice only. Polling an
   entry (`GET`, unguessable id) and `/api/race/stats` stay public — race
   outcomes and payouts are public on-chain anyway.
-- No background worker yet: house seating and payouts run when the entry is
+- A background tick (`web/src/lib/raceWorker.ts`, started by
+  `web/src/instrumentation.ts`, every 10s) runs no-rival refunds, lost
+  confirmations and payouts even when nobody is polling. An entry whose
+  confirmation was lost keeps its signature (`attemptSig`) and is only
+  treated as unpaid once that signature provably never landed.
+- (Superseded 10-11) No background worker: house seating and payouts ran when the entry was
   polled, confirmed or cancelled.
 - The ledger is a JSON file on one server process, which is fine for a demo.
   A database is needed before multiple instances run.
-- The house as counterparty is devnet-only. Paid races on mainnet wait for a
+- (Superseded 10-11: paid rooms ship on mainnet as player vs player, founder
+  decision; legal review still open.) The house as counterparty is devnet-only. Paid races on mainnet wait for a
   legal review.
 - The starter-SOL faucet (`web/src/lib/faucet.ts`) is devnet-only by code: it
   checks the cluster's genesis hash before every drip and refuses anywhere

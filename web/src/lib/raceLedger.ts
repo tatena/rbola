@@ -5,13 +5,17 @@
 // match / cancel / payout can never interleave.
 //
 // Lifecycle: awaiting_payment → (signed transfer confirmed) → searching →
-// matched with a driver on the same (track, room), or the house after ~20s →
-// resolved instantly (pure function) → payout / refund transfers.
+// matched with a driver on the same (track, room) → resolved instantly (pure
+// function) → payout / refund transfers. Paid rooms are player vs player only
+// (founder call 10-11): no rival within NO_RIVAL_MS → full refund. The house
+// car races only in free practice. A background tick (raceWorker) expires
+// searches and sends payouts even when nobody is polling.
 
 import fs from "node:fs";
 import path from "node:path";
 import { AuthError, authError } from "@/lib/auth";
 import { REGISTRY_PATH, STATE_DIR } from "@/lib/dataDir";
+import { heliusRpc } from "@/lib/cluster";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getEntry, type Rarity, type Spec } from "@/lib/catalog";
@@ -29,12 +33,13 @@ import {
   buildEntryTx,
   txStatus,
   signPayout,
+  signatureOf,
   submitEntryTx,
 } from "@/lib/raceWallet";
 import houseCars from "../../data/house-cars.json";
 
 const LEDGER_PATH = path.join(STATE_DIR, "races.json");
-const HOUSE_AFTER_MS = 20_000; // founder call 10-08: house seats after ~20s
+const NO_RIVAL_MS = 60_000; // paid search with no rival → full refund
 const PAYMENT_WINDOW_MS = 120_000; // an unpaid entry stops holding its card
 
 export type Car = {
@@ -72,6 +77,10 @@ type Entry = {
   searchingSince?: number;
   raceId?: string;
   refund?: Payout;
+  // a broadcast whose confirmation was lost: it may still land, so the entry
+  // can't be treated as unpaid until this signature is settled on-chain
+  attemptSig?: string;
+  endReason?: "left" | "no_rival";
 };
 
 type Race = {
@@ -148,7 +157,7 @@ function withLedger<T>(fn: (l: Ledger) => T | Promise<T>): Promise<T> {
 type CatchRecord = { assetId: string; name: string; photo: string; spec_key?: string };
 
 async function ownedCard(assetId: string, owner: string) {
-  const rpc = `https://devnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`;
+  const rpc = heliusRpc();
   const res = await fetch(rpc, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -263,7 +272,8 @@ export async function createEntry(input: {
   if (room !== "practice") {
     if (car.rarity !== room) throw new RaceError(`this card races in the ${car.rarity} room`);
     // race gate: provisional cards stay out of paid races until their spec
-    // settles — devnet flag lets them in (founder call 10-08), on for mainnet
+    // settles — RACE_ALLOW_PROVISIONAL lets them in (founder: on for the
+    // mainnet launch too, 10-11, with daily review of pending cars)
     if (provisional && process.env.RACE_ALLOW_PROVISIONAL !== "1") {
       throw new RaceError("card specs are not settled yet");
     }
@@ -312,36 +322,85 @@ export async function confirmEntry(id: string, signedTx: unknown) {
   try {
     sig = await submitEntryTx(signedTx, e0.message!, e0.lastValidBlockHeight!);
   } catch (err) {
+    const attempt = signatureOf(signedTx, e0.message!);
     await withLedger((l) => {
       l.entries[id].status = "awaiting_payment";
+      if (attempt) l.entries[id].attemptSig = attempt;
     });
     throw new RaceError(err instanceof Error ? err.message : String(err), 402);
   }
-  const out = await withLedger((l) => {
-    const e = l.entries[id];
-    e.paySig = sig;
-    e.status = "searching";
-    e.searchingSince = Date.now();
-    tryMatch(l, e);
-    return view(l, e);
-  });
+  const out = await withLedger((l) => markPaid(l, l.entries[id], sig));
   await settle(id);
   return out;
+}
+
+function markPaid(l: Ledger, e: Entry, sig: string) {
+  e.paySig = sig;
+  delete e.attemptSig;
+  e.status = "searching";
+  e.searchingSince = Date.now();
+  tryMatch(l, e);
+  return view(l, e);
+}
+
+// paid search that found nobody: full refund
+function expire(e: Entry, now: number) {
+  if (e.status !== "searching" || e.fee === 0) return;
+  if (now - (e.searchingSince ?? 0) < NO_RIVAL_MS) return;
+  e.status = "cancelled";
+  e.endReason = "no_rival";
+  e.refund = { id: randomUUID(), to: e.owner, lamports: e.fee, kind: "refund", status: "pending" };
+}
+
+// lost-confirmation entries: adopt the payment if it landed, forget it if it
+// provably never will
+async function reconcileAttempt(id: string) {
+  const e0 = load().entries[id];
+  if (!e0?.attemptSig || e0.status !== "awaiting_payment") return "none" as const;
+  const st = await txStatus(e0.attemptSig, e0.lastValidBlockHeight!);
+  if (st === "pending") return st;
+  await withLedger((l) => {
+    const e = l.entries[id];
+    if (e.status !== "awaiting_payment" || e.attemptSig !== e0.attemptSig) return;
+    if (st === "landed") markPaid(l, e, e0.attemptSig!);
+    else delete e.attemptSig;
+  });
+  return st;
+}
+
+// Background tick (lib/raceWorker): expiry, lost confirmations, payouts.
+export async function tick() {
+  const work = await withLedger((l) => {
+    const now = Date.now();
+    for (const e of Object.values(l.entries)) expire(e, now);
+    const attempts = Object.values(l.entries)
+      .filter((e) => e.status === "awaiting_payment" && e.attemptSig)
+      .map((e) => e.id);
+    const payable = Object.values(l.entries)
+      .filter((e) => pendingPayouts(l, e.id).length > 0)
+      .map((e) => e.id);
+    return { attempts, payable };
+  });
+  for (const id of work.attempts) await reconcileAttempt(id).catch(() => {});
+  for (const id of work.payable) await settle(id);
 }
 
 export async function getEntryView(id: string) {
   await withLedger((l) => {
     const e = l.entries[id];
     if (!e) throw new RaceError("entry not found", 404);
-    if (e.status === "searching" && Date.now() - (e.searchingSince ?? 0) > HOUSE_AFTER_MS) {
-      startRace(l, e, null);
-    }
+    expire(e, Date.now());
   });
   await settle(id);
   return withLedger((l) => view(l, l.entries[id]));
 }
 
 export async function cancelEntry(id: string) {
+  // a payment whose confirmation was lost must settle before we can say
+  // whether there is anything to refund
+  if ((await reconcileAttempt(id)) === "pending") {
+    throw new RaceError("payment is still settling — try again in a minute", 409);
+  }
   await withLedger((l) => {
     const e = l.entries[id];
     if (!e) throw new RaceError("entry not found", 404);
@@ -351,6 +410,7 @@ export async function cancelEntry(id: string) {
     }
     if (e.status !== "searching") throw new RaceError(`entry is ${e.status}`, 409);
     e.status = "cancelled";
+    e.endReason = "left";
     e.refund = { id: randomUUID(), to: e.owner, lamports: e.fee, kind: "refund", status: "pending" };
   });
   await settle(id);
@@ -422,7 +482,8 @@ function view(l: Ledger, e: Entry) {
     track: e.track,
     room: e.room,
     fee: e.fee,
-    car: { name: e.car.name, photo: e.car.photo, rarity: e.car.rarity },
+    car: { assetId: e.car.assetId, name: e.car.name, photo: e.car.photo, rarity: e.car.rarity },
+    reason: e.endReason ?? null,
     paySig: e.paySig ?? null,
     opponent: oppCar
       ? {

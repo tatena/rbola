@@ -404,7 +404,7 @@ export default function GaragePage() {
               aria-hidden
             />
             <span className="font-mono text-[11.5px] font-medium leading-none">
-              {sol.toFixed(2)}
+              {+sol.toFixed(4)}
             </span>
             <span className="font-mono text-[9px] font-medium leading-none tracking-[.14em] text-[rgba(242,241,238,.4)]">
               SOL

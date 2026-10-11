@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { CATCHES_DIR, REGISTRY_PATH } from "@/lib/dataDir";
+import { APP_URL, CLUSTER, heliusRpc } from "@/lib/cluster";
 import { NextRequest, NextResponse } from "next/server";
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import {
@@ -21,8 +22,10 @@ import {
   type VerifiedCatch,
 } from "@/lib/verifyCatch";
 
-// the spike tree from step 5 — 16k card slots
-const TREE = "7hZ1FXsYbFWon6rxrJydouX5dcsATMSFejsnNR4My41u";
+// the card tree: MERKLE_TREE per network; devnet falls back to the spike tree
+const TREE =
+  process.env.MERKLE_TREE ??
+  (CLUSTER === "devnet" ? "7hZ1FXsYbFWon6rxrJydouX5dcsATMSFejsnNR4My41u" : undefined);
 
 // exact-photo hashes being minted right now; with the registry check below
 // this makes every verified photo mint exactly once, ever (the verify token
@@ -124,9 +127,17 @@ async function mint({
   leafOwner: string;
 } & VerifiedCatch) {
   const name = verdictName(verdict);
+  if (!TREE) throw new Error("MERKLE_TREE is not set");
 
-  // v0: photos live on the dev server's disk; real hosting (Irys) comes later
+  // photo + metadata live on our server's disk, served from our own domain
+  // (/api/photo, /api/meta) — the on-chain uri is permanent, and owning the
+  // domain lets us move the files (e.g. to Arweave) later without breaking it
   const id = crypto.randomBytes(8).toString("hex");
+  const image = `${APP_URL}/api/photo/${id}.jpg`;
+  // public metadata gets the spot to ~1 km: exact GPS of a catch is often
+  // someone's street; the registry below keeps the exact fix for verification
+  const coarse = (v: unknown) =>
+    v != null && v !== "" && Number.isFinite(Number(v)) ? Number(v).toFixed(2) : "";
   const dir = CATCHES_DIR;
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, `${id}.jpg`), Buffer.from(b64, "base64"));
@@ -135,11 +146,13 @@ async function mint({
     JSON.stringify({
       name: `RBOLA · ${name}`,
       symbol: "RBOLA",
-      description: "RBOLA catch (dev build)",
-      image: `/catches/${id}.jpg`,
+      description: `${name}, spotted on the street and verified. Caught with RBOLA.`,
+      image,
+      external_url: "https://rbola.fun",
+      properties: { category: "image", files: [{ uri: image, type: "image/jpeg" }] },
       attributes: [
-        { trait_type: "lat", value: String(lat ?? "") },
-        { trait_type: "lon", value: String(lon ?? "") },
+        { trait_type: "lat", value: coarse(lat) },
+        { trait_type: "lon", value: coarse(lon) },
         { trait_type: "caught_at", value: new Date().toISOString() },
         // card-frame crop (photo px) — card rendering uses this region
         { trait_type: "card_frame", value: frame ? JSON.stringify(frame) : "" },
@@ -156,9 +169,7 @@ async function mint({
     }),
   );
 
-  const umi = createUmi(
-    `https://devnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`,
-  ).use(mplBubblegum());
+  const umi = createUmi(heliusRpc()).use(mplBubblegum());
   const secret = new Uint8Array(
     JSON.parse(fs.readFileSync(process.env.PAYER_KEYPAIR_PATH!, "utf8")),
   );
@@ -169,8 +180,7 @@ async function mint({
     merkleTree: publicKey(TREE),
     metadata: {
       name: `RBOLA · ${name}`.slice(0, 32),
-      // placeholder — permanent metadata hosting is a later step
-      uri: `https://rbola.dev/catches/${id}.json`,
+      uri: `${APP_URL}/api/meta/${id}`,
       sellerFeeBasisPoints: 500,
       collection: none(),
       creators: [],

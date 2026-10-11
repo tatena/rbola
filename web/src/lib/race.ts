@@ -18,13 +18,15 @@ const WEIGHTS: Record<Track, { speed: number; accel: number; handling: number }>
 
 export const ROOMS: Rarity[] = ["common", "scarce", "rare", "epic", "legendary"];
 
-// v0 demo fee ladder (real amounts = open founder economy decision)
+// mainnet launch fee ladder (founder call 10-11). The smallest entry stays
+// above the rent-exempt minimum (0.00089 SOL), so a refund or payout can
+// always land in an emptied wallet. The tier screen shows the same numbers.
 export const FEE_LAMPORTS: Record<Rarity, number> = {
-  common: 10_000_000, // 0.01 SOL
-  scarce: 20_000_000, // 0.02
-  rare: 50_000_000, // 0.05
-  epic: 100_000_000, // 0.10
-  legendary: 250_000_000, // 0.25
+  common: 1_000_000, // 0.001 SOL
+  scarce: 2_000_000, // 0.002
+  rare: 5_000_000, // 0.005
+  epic: 10_000_000, // 0.01
+  legendary: 20_000_000, // 0.02
 };
 
 export const RAKE_PCT = 15;
