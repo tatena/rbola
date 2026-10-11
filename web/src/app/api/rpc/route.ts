@@ -28,7 +28,7 @@ const METHODS = new Set([
 type Call = { method?: unknown };
 
 export async function POST(req: Request) {
-  if (!allow(`rpc:${clientIp(req)}`, 120, 60_000)) {
+  if (!allow(`rpc:${clientIp(req)}`, 60, 60_000) || !allow("rpc:all", 30_000, 24 * 3600_000)) {
     return NextResponse.json({ error: "slow down" }, { status: 429 });
   }
   let body: Call | Call[];
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "bad json" }, { status: 400 });
   }
   const calls = Array.isArray(body) ? body : [body];
-  if (calls.length === 0 || calls.length > 10 || !calls.every((c) => METHODS.has(String(c?.method)))) {
+  if (calls.length === 0 || calls.length > 3 || !calls.every((c) => METHODS.has(String(c?.method)))) {
     return NextResponse.json({ error: "method not allowed" }, { status: 403 });
   }
   const res = await fetch(heliusRpc(), {

@@ -100,6 +100,13 @@ Scripted end-to-end with two test wallets against the running app:
   confirm or cancel your own entry. Logged out = practice only. Polling an
   entry (`GET`, unguessable id) and `/api/race/stats` stay public — race
   outcomes and payouts are public on-chain anyway.
+- Payouts are claimed per payout id, re-read under the lock, and their
+  signature replaced only compare-and-set, so concurrent settles (tick + both
+  players' polls) can never sign a second transfer. Each memo carries the
+  payout id. "Dropped" needs the finalized block height to be past
+  lastValidBlockHeight + 150, so a landed payout can't be resent. A confirm
+  interrupted by a restart is reconciled after 3 min. Matching requires equal
+  fees. Race routes are rate-limited per IP.
 - A background tick (`web/src/lib/raceWorker.ts`, started by
   `web/src/instrumentation.ts`, every 10s) runs no-rival refunds, lost
   confirmations and payouts even when nobody is polling. An entry whose

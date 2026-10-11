@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { resolveSpec } from "@/lib/catalog";
 import { allow, clientIp } from "@/lib/rateLimit";
+import { authEnabled, callerId, hasBearer } from "@/lib/auth";
 import {
   MAX_PHOTO_B64_CHARS,
   createVerificationToken,
@@ -34,11 +35,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "photo too large" }, { status: 413 });
   }
 
-  // every check is a paid vision call — cap it per network and globally
-  if (
-    !allow(`verify:${clientIp(req)}`, 30, 3600_000) ||
-    !allow("verify:all", 600, 24 * 3600_000)
-  ) {
+  // every check is a paid vision call. Logged-in players get their own
+  // budget plus a shared one that anonymous traffic can't touch, so nobody
+  // can lock real players out by burning a single global cap.
+  let who: string | null = null;
+  if (authEnabled && hasBearer(req)) who = await callerId(req).catch(() => null);
+  const ok = who
+    ? allow(`verify:u:${who}`, 20, 3600_000) &&
+      allow(`verify:ud:${who}`, 60, 24 * 3600_000) &&
+      allow("verify:users", 1500, 24 * 3600_000)
+    : allow(`verify:${clientIp(req)}`, 10, 3600_000) && allow("verify:anon", 150, 24 * 3600_000);
+  if (!ok) {
     return NextResponse.json(
       { error: "too many checks — try again later" },
       { status: 429 },

@@ -47,7 +47,7 @@ export function hasBearer(req: Request): boolean {
 }
 
 // → the Privy user id (DID) behind the request's access token
-async function callerId(req: Request): Promise<string> {
+export async function callerId(req: Request): Promise<string> {
   const token = req.headers.get("authorization")?.match(/^Bearer (.+)$/)?.[1];
   if (!token) throw new AuthError("log in first", 401);
   const k = await verificationKey();

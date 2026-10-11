@@ -20,14 +20,20 @@ if [ ! -f /swapfile ]; then
 fi
 
 # app user + layout: app/ is replaced on deploy; data/ and keys/ never are
-id rbola >/dev/null 2>&1 || useradd --system --create-home --shell /usr/sbin/nologin rbola
-# prod = /srv/rbola (port 3000, unit rbola); staging = /srv/rbola-staging (port 3001, unit rbola-staging, devnet)
-for ROOT in /srv/rbola /srv/rbola-staging; do
-  mkdir -p $ROOT/{app,data/catches,data/state,keys}
-  chown -R rbola:rbola $ROOT
-  chmod 700 $ROOT/keys
+# prod = /srv/rbola (port 3000, unit rbola, user rbola); staging =
+# /srv/rbola-staging (port 3001, unit rbola-staging, devnet, user rbola-staging
+# — its own user, so staging can never read the mainnet keys or env)
+for U in rbola rbola-staging; do
+  id $U >/dev/null 2>&1 || useradd --system --create-home --shell /usr/sbin/nologin $U
 done
-# env files (secrets) are created by hand: $ROOT/env, mode 600, owner rbola.
+for ROOT in /srv/rbola /srv/rbola-staging; do
+  U=$(basename $ROOT)
+  mkdir -p $ROOT/{app,data/catches,data/state,keys}
+  chown -R $U:$U $ROOT
+  chmod 700 $ROOT $ROOT/keys
+done
+# env files (secrets) are created by hand: $ROOT/env, mode 600, owned by that
+# root's user — after editing as root, chown it back or the app can't read it.
 # staging env must point DATA_DIR/*_KEYPAIR_PATH into /srv/rbola-staging and set
 # PORT=3001 SOLANA_CLUSTER=devnet NEXT_PUBLIC_SOLANA_CLUSTER=devnet
 

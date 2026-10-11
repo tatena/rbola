@@ -37,8 +37,29 @@ function readRegistry(): Record<string, unknown>[] {
   return fs.existsSync(REGISTRY_PATH) ? JSON.parse(fs.readFileSync(REGISTRY_PATH, "utf8")) : [];
 }
 
+// only these shapes reach the registry + metadata: anything else is dropped,
+// so a request can't bloat the files every garage read parses
+const finite = (v: unknown) => (v != null && v !== "" && Number.isFinite(Number(v)) ? Number(v) : null);
+const coord = (v: unknown, max: number) => {
+  const n = finite(v);
+  return n !== null && Math.abs(n) <= max ? n : null;
+};
+function cleanFrame(f: unknown) {
+  if (!f || typeof f !== "object") return null;
+  const r = f as Record<string, unknown>;
+  const [x, y, width, height] = ["x", "y", "width", "height"].map((k) => finite(r[k]));
+  return x !== null && y !== null && width !== null && height !== null ? { x, y, width, height } : null;
+}
+
 export async function POST(req: NextRequest) {
-  const { photo, lat, lon, frame, owner, verification } = await req.json();
+  if (Number(req.headers.get("content-length") ?? 0) > 9_000_000) {
+    return NextResponse.json({ error: "photo too large" }, { status: 413 });
+  }
+  const body = await req.json();
+  const { photo, owner, verification } = body;
+  const lat = coord(body.lat, 90);
+  const lon = coord(body.lon, 180);
+  const frame = cleanFrame(body.frame);
   if (!photo) {
     return NextResponse.json({ error: "photo is required" }, { status: 400 });
   }
@@ -67,7 +88,9 @@ export async function POST(req: NextRequest) {
   // every mint is paid by the server payer — cap it per wallet and network
   if (
     !allow(`catch:${leafOwner}`, 20, 3600_000) ||
-    !allow(`catch:ip:${clientIp(req)}`, 40, 3600_000)
+    !allow(`catch:day:${leafOwner}`, 60, 24 * 3600_000) ||
+    !allow(`catch:ip:${clientIp(req)}`, 40, 3600_000) ||
+    !allow("catch:all", 500, 24 * 3600_000)
   ) {
     return NextResponse.json(
       { error: "too many catches — try again later" },

@@ -40,6 +40,7 @@ import houseCars from "../../data/house-cars.json";
 
 const LEDGER_PATH = path.join(STATE_DIR, "races.json");
 const NO_RIVAL_MS = 60_000; // paid search with no rival → full refund
+const STALE_CONFIRM_MS = 180_000; // longer than any live confirm can take
 const PAYMENT_WINDOW_MS = 120_000; // an unpaid entry stops holding its card
 
 export type Car = {
@@ -80,6 +81,7 @@ type Entry = {
   // a broadcast whose confirmation was lost: it may still land, so the entry
   // can't be treated as unpaid until this signature is settled on-chain
   attemptSig?: string;
+  confirmingSince?: number;
   endReason?: "left" | "no_rival";
 };
 
@@ -127,8 +129,13 @@ export function raceError(err: unknown) {
 function load(): Ledger {
   try {
     return JSON.parse(fs.readFileSync(LEDGER_PATH, "utf8"));
-  } catch {
-    return { entries: {}, races: {}, houseCursor: {} };
+  } catch (err) {
+    // only a missing file is a fresh ledger — an unreadable or corrupt one
+    // must never be silently replaced (pending payouts would be lost)
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      return { entries: {}, races: {}, houseCursor: {} };
+    }
+    throw err;
   }
 }
 
@@ -247,6 +254,7 @@ function tryMatch(l: Ledger, e: Entry) {
         o.status === "searching" &&
         o.track === e.track &&
         o.room === e.room &&
+        o.fee === e.fee &&
         o.owner !== e.owner,
     )
     .sort((x, y) => (x.searchingSince ?? 0) - (y.searchingSince ?? 0))[0];
@@ -315,17 +323,20 @@ export async function confirmEntry(id: string, signedTx: unknown) {
     const e = l.entries[id];
     if (!e) throw new RaceError("entry not found", 404);
     if (e.status !== "awaiting_payment") throw new RaceError(`entry is ${e.status}`, 409);
+    // remember the signature before broadcasting: if the process dies
+    // mid-confirm, the tick can still tell whether the payment landed
+    const attempt = signatureOf(signedTx, e.message!);
+    if (attempt) e.attemptSig = attempt;
     e.status = "confirming";
+    e.confirmingSince = Date.now();
     return { ...e };
   });
   let sig: string;
   try {
     sig = await submitEntryTx(signedTx, e0.message!, e0.lastValidBlockHeight!);
   } catch (err) {
-    const attempt = signatureOf(signedTx, e0.message!);
     await withLedger((l) => {
       l.entries[id].status = "awaiting_payment";
-      if (attempt) l.entries[id].attemptSig = attempt;
     });
     throw new RaceError(err instanceof Error ? err.message : String(err), 402);
   }
@@ -337,6 +348,7 @@ export async function confirmEntry(id: string, signedTx: unknown) {
 function markPaid(l: Ledger, e: Entry, sig: string) {
   e.paySig = sig;
   delete e.attemptSig;
+  delete e.confirmingSince;
   e.status = "searching";
   e.searchingSince = Date.now();
   tryMatch(l, e);
@@ -372,7 +384,13 @@ async function reconcileAttempt(id: string) {
 export async function tick() {
   const work = await withLedger((l) => {
     const now = Date.now();
-    for (const e of Object.values(l.entries)) expire(e, now);
+    for (const e of Object.values(l.entries)) {
+      expire(e, now);
+      // a confirm that never finished (process restart mid-broadcast)
+      if (e.status === "confirming" && now - (e.confirmingSince ?? e.createdAt) > STALE_CONFIRM_MS) {
+        e.status = "awaiting_payment";
+      }
+    }
     const attempts = Object.values(l.entries)
       .filter((e) => e.status === "awaiting_payment" && e.attemptSig)
       .map((e) => e.id);
@@ -430,41 +448,54 @@ function pendingPayouts(l: Ledger, entryId: string): Payout[] {
   );
 }
 
-// send every pending payout touching this entry; safe to call repeatedly
+// send every pending payout touching this entry; safe to call repeatedly and
+// concurrently (tick + both racers' polls): each payout is re-read under the
+// lock once claimed, and its signature only replaced compare-and-set, so a
+// stale copy can never sign or broadcast a second transfer
 async function settle(entryId: string) {
-  const todo = await withLedger((l) => pendingPayouts(l, entryId).map((p) => ({ ...p })));
-  for (const p of todo) {
-    // keyed by payout id: both racers' polls settle the same race payouts
-    if (inflight.has(p.id)) continue;
-    inflight.add(p.id);
+  const ids = await withLedger((l) => pendingPayouts(l, entryId).map((p) => p.id));
+  for (const id of ids) {
+    if (inflight.has(id)) continue;
+    inflight.add(id);
     try {
-      await payOne(entryId, p);
+      await payOne(entryId, id);
     } catch (err) {
-      console.error("race payout failed (will retry on next poll)", err);
+      console.error("race payout failed (will retry on next tick)", err);
     } finally {
-      inflight.delete(p.id);
+      inflight.delete(id);
     }
   }
 }
 
-async function payOne(entryId: string, p: Payout) {
-  const match = (q: Payout) => q.id === p.id;
+async function payOne(entryId: string, id: string) {
+  const match = (q: Payout) => q.id === id;
+  const p = await withLedger((l) => {
+    const q = pendingPayouts(l, entryId).find(match);
+    return q ? { ...q } : null;
+  });
+  if (!p) return; // already sent by someone else
   // a signature already recorded may have landed — never pay twice
   if (p.sig && p.lastValidBlockHeight) {
     const st = await txStatus(p.sig, p.lastValidBlockHeight);
-    if (st === "landed") return mark(entryId, match, { status: "sent" });
+    if (st === "landed") return mark(entryId, id, p.sig, { status: "sent" });
     if (st === "pending") return;
   }
-  const signed = await signPayout(p.to, p.lamports, `rbola race ${p.kind}`);
-  await mark(entryId, match, { ...signed });
+  // the payout id in the memo makes every payout a distinct transaction (two
+  // identical transfers under one blockhash would collapse into one signature)
+  const signed = await signPayout(p.to, p.lamports, `rbola race ${p.kind} ${p.id}`);
+  // persist the new signature only if nothing changed since the read
+  if (!(await mark(entryId, id, p.sig, { ...signed }))) return;
   await broadcastPayout(signed);
-  await mark(entryId, match, { status: "sent" });
+  await mark(entryId, id, signed.sig, { status: "sent" });
 }
 
-function mark(entryId: string, match: (p: Payout) => boolean, patch: Partial<Payout>) {
+// compare-and-set on (payout id, current sig); true if it patched
+function mark(entryId: string, id: string, expectSig: string | undefined, patch: Partial<Payout>) {
   return withLedger((l) => {
-    const p = pendingPayouts(l, entryId).find(match);
-    if (p) Object.assign(p, patch);
+    const q = pendingPayouts(l, entryId).find((x) => x.id === id);
+    if (!q || q.sig !== expectSig) return false;
+    Object.assign(q, patch);
+    return true;
   });
 }
 

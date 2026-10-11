@@ -6,8 +6,9 @@ set -euo pipefail
 export LC_ALL=C
 HOST="root@${1:?usage: deploy.sh <server-ip> <prod|staging>}"
 case "${2:?usage: deploy.sh <server-ip> <prod|staging>}" in
-  prod)    ROOT=/srv/rbola;         UNIT=rbola ;;
-  staging) ROOT=/srv/rbola-staging; UNIT=rbola-staging ;;
+  # separate users: a compromised (devnet) staging app can't read mainnet keys
+  prod)    ROOT=/srv/rbola;         UNIT=rbola;         RUNAS=rbola ;;
+  staging) ROOT=/srv/rbola-staging; UNIT=rbola-staging; RUNAS=rbola-staging ;;
   *) echo "target must be prod or staging" >&2; exit 1 ;;
 esac
 cd "$(dirname "$0")/.."
@@ -27,8 +28,10 @@ rsync -az --delete \
 
 ssh "$HOST" "set -e
   echo $REV > $ROOT/app/REVISION
-  chown -R rbola:rbola $ROOT/app
+  chown -R $RUNAS:$RUNAS $ROOT/app
   cd $ROOT/app/web
-  sudo -u rbola bash -c 'set -a; . $ROOT/env; set +a; npm install --no-audit --no-fund && npm run build'
+  # install WITHOUT secrets in the environment (dependency install scripts
+  # run here); only the build sees the env, to bake NEXT_PUBLIC_* in
+  sudo -u $RUNAS bash -c 'npm install --no-audit --no-fund && set -a && . $ROOT/env && set +a && npm run build'
   systemctl restart $UNIT
   sleep 3; systemctl --no-pager --lines=5 status $UNIT"

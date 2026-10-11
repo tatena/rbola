@@ -3,7 +3,7 @@ Description=RBOLA web app (staging, devnet)
 After=network.target
 
 [Service]
-User=rbola
+User=rbola-staging
 WorkingDirectory=/srv/rbola-staging/app/web
 EnvironmentFile=/srv/rbola-staging/env
 Environment=NODE_ENV=production PORT=3001

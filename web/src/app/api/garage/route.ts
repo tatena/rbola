@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { REGISTRY_PATH } from "@/lib/dataDir";
 import { heliusRpc } from "@/lib/cluster";
+import { allow, clientIp } from "@/lib/rateLimit";
 import { NextResponse } from "next/server";
 import { deriveStats, getEntry } from "@/lib/catalog";
 
@@ -18,7 +19,14 @@ type CatchRecord = {
   provisional?: boolean;
 };
 
+// coordinates leave the server at ~1 km, like the public card metadata
+const coarse = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? Math.round(v * 100) / 100 : null);
+
 export async function GET(req: Request) {
+  // every read costs Helius DAS credits
+  if (!allow(`garage:${clientIp(req)}`, 60, 60_000)) {
+    return NextResponse.json({ error: "slow down" }, { status: 429 });
+  }
   // garage of the logged-in user's wallet; the founder-wallet fallback exists
   // only for dev builds without auth — signed out with auth = empty garage
   const qOwner = new URL(req.url).searchParams.get("owner");
@@ -96,8 +104,8 @@ export async function GET(req: Request) {
         // race gate: provisional (pending-catalog) cards can't enter paid
         // races until their spec settles — entry.status is the live truth
         provisional: entry ? entry.status !== "verified" : (rec?.provisional ?? false),
-        lat: rec?.lat ?? null,
-        lon: rec?.lon ?? null,
+        lat: coarse(rec?.lat),
+        lon: coarse(rec?.lon),
         frame: rec?.frame ?? null,
         time: rec?.time ?? null,
       };

@@ -12,7 +12,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  if (!/^[a-z0-9]+$/.test(id)) {
+  // card ids only (8-char legacy, 16-hex now) — never the registry (index.json)
+  if (id === "index" || !/^[a-z0-9]{8,16}$/.test(id)) {
     return NextResponse.json({ error: "bad id" }, { status: 400 });
   }
   const p = path.join(CATCHES_DIR, `${id}.json`);

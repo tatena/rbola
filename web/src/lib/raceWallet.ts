@@ -146,16 +146,22 @@ export async function broadcastPayout(p: {
   if (res.value.err) throw new Error(`payout failed: ${JSON.stringify(res.value.err)}`);
 }
 
-// "landed" | "pending" (may still land) | "dropped" (blockhash expired, never landed)
+// "landed" | "pending" (may still land) | "dropped" (provably never landed).
+// Block height is read FIRST (finalized, with a margin), then the status: a
+// lagging status node can then only make us wait, never call a landed
+// transfer dropped and pay it again.
+const DROP_MARGIN = 150; // blocks (~1 min) past lastValidBlockHeight
 export async function txStatus(sig: string, lastValidBlockHeight: number) {
+  const height = await connection().getBlockHeight("finalized");
   const { value } = await connection().getSignatureStatuses([sig], {
     searchTransactionHistory: true,
   });
   const st = value[0];
-  if (st && !st.err && st.confirmationStatus) return "landed";
-  if (st?.err) return "dropped";
-  const height = await connection().getBlockHeight("confirmed");
-  return height > lastValidBlockHeight ? "dropped" : "pending";
+  if (st?.err) return "dropped"; // landed but failed: no SOL moved
+  if (st && (st.confirmationStatus === "confirmed" || st.confirmationStatus === "finalized")) {
+    return "landed";
+  }
+  return height > lastValidBlockHeight + DROP_MARGIN ? "dropped" : "pending";
 }
 
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
