@@ -6,7 +6,9 @@ import "./landing.css";
 // rbola.fun are redirected across in next.config.ts. Styling is scoped to
 // landing.css so this page deploys regardless of app-screen work in flight.
 
-const APP_URL = "https://app.rbola.fun/catch";
+// `npm run dev` stays on the local server instead of jumping to production
+const APP_URL =
+  process.env.NODE_ENV === "development" ? "/catch" : "https://app.rbola.fun/catch";
 
 // Icon paths mirror src/components/BottomNav.tsx exactly — the landing
 // phone is a truthful screenshot of the app, garage tab active.

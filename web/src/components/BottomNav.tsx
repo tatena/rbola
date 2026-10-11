@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { CSSProperties } from "react";
+import { useFirstCar } from "@/lib/useFirstCar";
 
 // Line icons per nav spec: single path, 24×24 viewBox rendered at 19×19,
 // stroke-only, round caps/joins.
@@ -31,6 +32,8 @@ const tabs: { label: string; href: string; d: string }[] = [
 
 export default function BottomNav() {
   const pathname = usePathname();
+  // no car yet: only CAM is lit, the rest dim (they still open the gate)
+  const locked = useFirstCar() === "locked";
 
   return (
     <nav
@@ -43,12 +46,14 @@ export default function BottomNav() {
     >
       <div className="flex items-center justify-around">
         {tabs.map((tab) => {
-          const active = pathname.startsWith(tab.href);
+          const active = locked ? tab.href === "/catch" : pathname.startsWith(tab.href);
+          const dim = locked && tab.href !== "/catch";
           // fixed-size pills, icon only — nothing moves on tab change
           const pillStyle: CSSProperties = {
             background: active ? "rgba(201,179,126,.09)" : "transparent",
             border: `.5px solid ${active ? "rgba(201,179,126,.35)" : "transparent"}`,
-            transition: "background .2s ease, border-color .2s ease",
+            opacity: dim ? 0.35 : 1,
+            transition: "background .2s ease, border-color .2s ease, opacity .2s ease",
           };
 
           return (

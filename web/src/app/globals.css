@@ -284,3 +284,45 @@ body {
     transform: rotate(-90deg);
   }
 }
+
+/* first-car gate (Claude Design "RBOLA No Car Gate"): slow hero drift,
+   breathing R mark, card sheen, staggered rise. Settled state without motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .gate-drift {
+    animation: gate-drift 6s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+  }
+  .gate-breath {
+    animation: gate-breath 2.4s ease-in-out infinite;
+  }
+  .gate-sheen {
+    animation: gate-sheen 3.6s cubic-bezier(0.45, 0, 0.2, 1) infinite;
+  }
+  .gate-rise {
+    animation: rise-in 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+}
+@keyframes gate-drift {
+  to {
+    transform: scale(1.16);
+  }
+}
+@keyframes gate-breath {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.04);
+  }
+}
+@keyframes gate-sheen {
+  0% {
+    transform: translateX(-140px) skewX(-14deg);
+  }
+  60%,
+  100% {
+    transform: translateX(340px) skewX(-14deg);
+  }
+}
