@@ -5,6 +5,9 @@
 # Usage: deploy/deploy.sh <server-ip> <prod|staging>                 deploy HEAD
 #        deploy/deploy.sh <server-ip> <prod|staging> rollback [name]  point current/ at the previous
 #                                                                     (or named) release + restart
+#        FRESH=1 deploy/deploy.sh <server-ip> <prod|staging>         deploy with a clean npm ci
+#                                                                     (default reuses node_modules when
+#                                                                     the lockfile is unchanged)
 #
 # Server layout (per target ROOT = /srv/rbola | /srv/rbola-staging):
 #   ROOT/                 711 runtime-user  (traverse only: others can't list it)
@@ -78,17 +81,30 @@ B="$ROOT/releases/$NAME.building"
 
 rsync -az --exclude '.env*' "$TMP/web/" "$HOST:$B/web/"
 
+FRESH="${FRESH:-0}"
 "${SSH[@]}" "ROOT=$ROOT UNIT=$UNIT RUNAS=$RUNAS PORT=$PORT NAME=$NAME REV=$REV B=$B bash -s" <<REMOTE
 set -euo pipefail
 $SWITCH
 exec 9>/run/rbola-deploy-\$UNIT.lock; flock -n 9 || { echo "another deploy of \$UNIT is running"; exit 1; }
 echo "\$REV" > "\$B/REVISION"
+# dependency reuse: same package.json + lockfile as the live release → copy its node_modules
+# (root-sealed, so untampered) instead of a full npm ci. A real copy, not hardlinks: the chown
+# below must not touch the live release's files. FRESH=1 forces a clean install.
+PREV="\$ROOT/current/web"
+REUSE=0
+if [ "$FRESH" != 1 ] && [ -d "\$PREV/node_modules" ] \
+   && cmp -s "\$PREV/package-lock.json" "\$B/web/package-lock.json" \
+   && cmp -s "\$PREV/package.json" "\$B/web/package.json"; then
+  echo "deps unchanged since \$(cat "\$ROOT/current/REVISION" 2>/dev/null) — reusing node_modules"
+  cp -a "\$PREV/node_modules" "\$B/web/node_modules"
+  REUSE=1
+fi
 chown -R rbola-build:rbola-build "\$B"; chmod 700 "\$B"
 cd "\$B/web"
 BENV=(env -i PATH=/usr/bin:/bin HOME=/var/lib/rbola-build NEXT_TELEMETRY_DISABLED=1)
 
 # install: no lifecycle scripts, no secrets in the environment (devDeps needed for the build)
-sudo -u rbola-build "\${BENV[@]}" npm ci --ignore-scripts --no-audit --no-fund
+[ \$REUSE = 1 ] || sudo -u rbola-build "\${BENV[@]}" npm ci --ignore-scripts --no-audit --no-fund
 
 # build: only NEXT_PUBLIC_* from the target env (root reads the 600 env; build user never can)
 mapfile -t PUB < <(sed -n "s/^[[:space:]]*\(export[[:space:]]\{1,\}\)\{0,1\}\(NEXT_PUBLIC_[A-Za-z0-9_]*\)=[\"']\{0,1\}\([^\"']*\)[\"']\{0,1\}[[:space:]]*\$/\2=\3/p" "\$ROOT/env")
