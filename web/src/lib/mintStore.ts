@@ -1,4 +1,5 @@
 import { authHeaders } from "@/lib/authHeaders";
+import { markHasCar } from "@/lib/useFirstCar";
 
 // Client-side draft-mint store. The mint API call runs here in the background
 // so the mint screen can hand off to the garage immediately (ADDED TO GARAGE →
@@ -106,6 +107,8 @@ async function run() {
     }
     const json = await res.json();
     if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+    // first card in hand — the onboarding gate opens for good
+    markHasCar(mine.owner);
     if (draft === mine) {
       draft = { ...mine, status: "minted", assetId: json.assetId };
       emit();
