@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
       // the app opens on the camera — the landing page lives on rbola.fun
       {
         source: "/",
-        has: [{ type: "host", value: "app\\.rbola\\.fun" }],
+        has: [{ type: "host", value: "(app|staging)\\.rbola\\.fun" }],
         destination: "/catch",
         permanent: false,
       },
