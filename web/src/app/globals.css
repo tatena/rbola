@@ -326,3 +326,32 @@ body {
     transform: translateX(340px) skewX(-14deg);
   }
 }
+
+/* Privy login dialog: its dark theme derives slate-blue greys and blue/violet
+   interactive colors no matter the base — repaint them in the brand's warm
+   neutrals + champagne */
+#privy-dialog,
+#privy-modal-content {
+  --privy-color-background: #0a0a0f !important;
+  --privy-color-background-2: #15151a !important;
+  --privy-color-background-3: #c9b37e !important;
+  --privy-color-background-interactive: #c9b37e !important;
+  --privy-color-foreground: #f2f1ee !important;
+  --privy-color-foreground-2: #a9a8a4 !important;
+  --privy-color-foreground-3: #7a7975 !important;
+  --privy-color-foreground-4: #26262c !important;
+  --privy-color-border-default: #26262c !important;
+  --privy-color-border-hover: #3a3a40 !important;
+  --privy-color-border-interactive: #c9b37e !important;
+  --privy-color-border-interactive-hover: #e0cd9c !important;
+  --privy-color-border-focus: #c9b37e !important;
+  --privy-color-icon-default: #f2f1ee !important;
+  --privy-color-icon-muted: #a9a8a4 !important;
+  --privy-color-icon-interactive: #c9b37e !important;
+}
+
+/* champagne for the dialog's headings ("Log in or sign up", "Enter
+   confirmation code", …) */
+#privy-modal-content h3 {
+  color: #c9b37e !important;
+}

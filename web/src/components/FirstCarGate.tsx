@@ -13,7 +13,7 @@ const marcellus = Marcellus({ weight: "400", subsets: ["latin"] });
 export const GATE_OPEN = ["/catch", "/upload"];
 
 // Full-screen gate per Claude Design "RBOLA No Car Gate": drifting grayscale
-// hero, glass card with the breathing R mark, CAPTURE above the nav.
+// hero, glass card with the breathing R mark and the CAPTURE / LOG IN button.
 export default function FirstCarGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -62,13 +62,13 @@ export default function FirstCarGate({ children }: { children: React.ReactNode }
         />
       </div>
 
-      {/* card sits in the space above CAPTURE; shrinks on short phones */}
-      <div className="absolute inset-x-0 top-0 flex items-center justify-center" style={{ bottom: 202, paddingTop: 130 }}>
+      {/* card (with its button inside) sits above the nav; shrinks on short phones */}
+      <div className="absolute inset-x-0 top-0 flex items-center justify-center" style={{ bottom: 120, paddingTop: 130 }}>
         <div
           className="gate-rise relative overflow-hidden rounded-[18px]"
           style={{
             width: 244,
-            height: "min(400px, 100%)",
+            height: "min(480px, 100%)",
             // smoked glass: the car still reads through the card
             background: "rgba(14,14,20,.45)",
             backdropFilter: "blur(6px)",
@@ -77,7 +77,7 @@ export default function FirstCarGate({ children }: { children: React.ReactNode }
             boxShadow: "0 34px 70px rgba(0,0,0,.7)",
           }}
         >
-          <div className="absolute inset-x-0 top-0 flex items-center justify-center" style={{ bottom: 150 }}>
+          <div className="absolute inset-x-0 top-0 flex items-center justify-center" style={{ bottom: 220 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/rbola-r-mark.png" alt="" className="gate-breath block w-[68px]" />
           </div>
@@ -101,28 +101,24 @@ export default function FirstCarGate({ children }: { children: React.ReactNode }
           />
           <h1
             className={`${marcellus.className} absolute inset-x-0 mx-auto max-w-[200px] text-center text-[15px] font-normal leading-normal tracking-[.24em]`}
-            style={{ bottom: 30, paddingLeft: ".24em", textWrap: "balance" }}
+            style={{ bottom: 104, paddingLeft: ".24em", textWrap: "balance" }}
           >
             CAPTURE YOUR FIRST CAR
           </h1>
-        </div>
-      </div>
 
-      <div className="gate-rise absolute inset-x-6" style={{ bottom: 122, animationDelay: ".45s" }}>
-        <button
-          onClick={signIn ? login : goCatch}
-          aria-label={signIn ? "Log in" : "Catch a car"}
-          className="flex h-14 w-full items-center justify-center rounded-[15px] transition-[background] duration-[250ms] hover:bg-[#1A1A21] active:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          style={{
-            background: opening ? "#1A1A21" : "#14141A",
-            border: "1px solid rgba(201,179,126,.6)",
-            boxShadow: "0 10px 30px rgba(0,0,0,.5),inset 0 .5px 0 rgba(255,255,255,.08)",
-          }}
-        >
-          <span className="pl-[.3em] font-mono text-[12px] leading-none tracking-[.3em]">
-            {signIn ? "LOG IN" : "CAPTURE"}
-          </span>
-        </button>
+          {/* the card's own foot: a champagne label, no box — the whole
+              strip is the tap target */}
+          <button
+            onClick={signIn ? login : goCatch}
+            aria-label={signIn ? "Log in" : "Catch a car"}
+            className="absolute inset-x-[7px] bottom-[7px] z-10 flex h-[62px] items-center justify-center rounded-b-[12px] text-accent transition-[background] duration-[250ms] active:bg-[rgba(201,179,126,.08)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+            style={{ background: opening ? "rgba(201,179,126,.08)" : undefined }}
+          >
+            <span className="pl-[.34em] font-mono text-[11px] leading-none tracking-[.34em]">
+              {signIn ? "LOG IN" : "CAPTURE"}
+            </span>
+          </button>
+        </div>
       </div>
 
       <div

@@ -21,7 +21,8 @@ export default function AppProviders({
       appId={appId}
       config={{
         loginMethods: ["email"],
-        appearance: { theme: "dark", accentColor: "#C9B37E" },
+        // brand near-black (Privy derives its greys from it) — "dark" reads blue
+        appearance: { theme: "#0A0A0F", accentColor: "#C9B37E" },
         embeddedWallets: {
           solana: { createOnLogin: "users-without-wallets" },
         },
