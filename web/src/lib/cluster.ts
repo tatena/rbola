@@ -15,13 +15,17 @@ export const CHAIN = `solana:${CLUSTER}` as const;
 export const heliusRpc = () =>
   `https://${CLUSTER}.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`;
 
-// browser RPC for the embedded wallet: a domain-locked Helius key when set,
-// else the public endpoint
-export const PUBLIC_RPC =
+// browser RPC for the embedded wallet: our own /api/rpc proxy (server key,
+// method allowlist), so no RPC key ships to phones. Subscriptions (wallet
+// confirmations) use the public websocket endpoint.
+export const browserRpc = () =>
   process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
-  (CLUSTER === "mainnet"
-    ? "https://api.mainnet-beta.solana.com"
-    : "https://api.devnet.solana.com");
+  (typeof window === "undefined"
+    ? "http://localhost/api/rpc" // SSR placeholder: nothing fetches during render
+    : `${window.location.origin}/api/rpc`);
+
+export const PUBLIC_WS =
+  CLUSTER === "mainnet" ? "wss://api.mainnet-beta.solana.com" : "wss://api.devnet.solana.com";
 
 // public origin baked into card metadata (on-chain, permanent)
 export const APP_URL =

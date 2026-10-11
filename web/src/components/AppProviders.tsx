@@ -5,7 +5,7 @@ import { PrivyProvider } from "@privy-io/react-auth";
 import { createSolanaRpc, createSolanaRpcSubscriptions } from "@solana/kit";
 import { authHeaders } from "@/lib/authHeaders";
 import { useOwner } from "@/lib/useOwner";
-import { CHAIN, CLUSTER, PUBLIC_RPC, explorerHome } from "@/lib/cluster";
+import { CHAIN, CLUSTER, PUBLIC_WS, browserRpc, explorerHome } from "@/lib/cluster";
 
 // App-wide auth (Privy, chosen in the wallet spike). Without the app id the
 // app still renders — screens hide their auth controls via hasAuth.
@@ -25,13 +25,13 @@ export default function AppProviders({
         embeddedWallets: {
           solana: { createOnLogin: "users-without-wallets" },
         },
-        // the wallet needs an RPC for the chain it signs on (race entries) —
-        // public endpoint or a domain-locked key, never the server's key
+        // the wallet needs an RPC for the chain it signs on (race entries,
+        // withdrawals) — our /api/rpc proxy, never a key in the bundle
         solana: {
           rpcs: {
             [CHAIN]: {
-              rpc: createSolanaRpc(PUBLIC_RPC),
-              rpcSubscriptions: createSolanaRpcSubscriptions(PUBLIC_RPC.replace(/^http/, "ws")),
+              rpc: createSolanaRpc(browserRpc()),
+              rpcSubscriptions: createSolanaRpcSubscriptions(PUBLIC_WS),
               blockExplorerUrl: explorerHome,
             },
           },

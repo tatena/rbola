@@ -22,7 +22,7 @@ NEXT_PUBLIC_PRIVY_APP_ID=   # Privy app id (client-side, enables login)
 PRIVY_VERIFICATION_KEY=     # Privy ES256 public key, base64 body only (server checks sessions)
 PRIVY_APP_SECRET=           # Privy app secret (server looks up a user's wallets)
 NEXT_PUBLIC_SOLANA_CLUSTER= # devnet (default) | mainnet — the one network switch (src/lib/cluster.ts)
-NEXT_PUBLIC_SOLANA_RPC_URL= # optional browser RPC (domain-locked key); default = public endpoint
+NEXT_PUBLIC_SOLANA_RPC_URL= # optional browser RPC override; default = our /api/rpc proxy (no key in the bundle)
 MERKLE_TREE=                # card tree address (devnet falls back to the spike tree)
 APP_URL=                    # optional; origin baked into card metadata (default per cluster)
 HELIUS_API_KEY=             # Helius RPC + DAS (server only)
