@@ -38,6 +38,7 @@ export async function GET(req: Request) {
   const rpc = heliusRpc();
   const call = (body: object) =>
     fetch(rpc, {
+      signal: AbortSignal.timeout(15_000),
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

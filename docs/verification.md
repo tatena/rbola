@@ -204,3 +204,17 @@ a signed-out player can shoot and verify first, then log in to mint.
 - **Rate limits are in memory** (`/api/verify` 30/hour per network + 600/day
   overall; `/api/catch` as above) — fine for one server process, they reset on
   restart.
+
+
+## Hardening (audit 2026-10-11)
+
+- **One answer per photo.** /api/verify caches the first verdict per photo hash for 24h, so a rejection can't be re-rolled and a rarity can't be shopped for.
+- **Tokens carry the network** (`aud` = devnet|mainnet), so a staging token never mints on mainnet.
+- **AI drafts are capped at "rare"** until founder review, which guards against catalog poisoning. Non-finite numbers are rejected.
+- **A single listed generation is used only if the recognizer didn't name a different one.** Otherwise it goes to the draft path.
+- **Mints are idempotent.**
+  - The registry record and the transaction signature are saved before broadcast.
+  - A retry settles an unconfirmed mint: if it landed, it returns the same card; if it was dropped, the record and files are removed and it mints fresh. It never mints a second card.
+  - The on-chain name is cut to 32 UTF-8 bytes, and AI text is sanitised.
+  - Symbol is RBOLA, with 0 royalty.
+- **Writes are atomic.** The registry, pending catalog and race ledger are written via temp file, fsync and rename. A corrupt pending catalog fails closed.

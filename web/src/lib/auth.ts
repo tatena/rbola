@@ -69,6 +69,7 @@ async function fetchWallets(userId: string): Promise<string[]> {
   const secret = process.env.PRIVY_APP_SECRET;
   if (!secret) throw new AuthError("auth is not configured", 500);
   const res = await fetch(`https://auth.privy.io/api/v1/users/${encodeURIComponent(userId)}`, {
+    signal: AbortSignal.timeout(10_000),
     headers: {
       Authorization: `Basic ${Buffer.from(`${APP_ID}:${secret}`).toString("base64")}`,
       "privy-app-id": APP_ID!,

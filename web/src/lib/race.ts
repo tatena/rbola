@@ -57,6 +57,11 @@ export type Outcome = "a" | "b" | "tie";
 export function resolve(a: Spec, b: Spec, track: Track) {
   const sa = score(a, track);
   const sb = score(b, track);
+  // a broken spec must never decide a paid race by queue position: it's a
+  // tie (both refunded in full) — never a throw inside the ledger lock
+  if (!Number.isFinite(sa) || !Number.isFinite(sb)) {
+    return { scoreA: 0, scoreB: 0, winner: "tie" as Outcome };
+  }
   const winner: Outcome = sa === sb ? "tie" : sa > sb ? "a" : "b";
   return { scoreA: sa, scoreB: sb, winner };
 }

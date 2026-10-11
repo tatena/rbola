@@ -14,7 +14,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { AuthError, authError } from "@/lib/auth";
-import { REGISTRY_PATH, STATE_DIR } from "@/lib/dataDir";
+import { REGISTRY_PATH, STATE_DIR, writeJsonAtomic } from "@/lib/dataDir";
+import { createHmac } from "node:crypto";
 import { heliusRpc } from "@/lib/cluster";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
@@ -140,10 +141,14 @@ function load(): Ledger {
 }
 
 function save(l: Ledger) {
-  fs.mkdirSync(path.dirname(LEDGER_PATH), { recursive: true });
-  const tmp = `${LEDGER_PATH}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(l, null, 2));
-  fs.renameSync(tmp, LEDGER_PATH);
+  writeJsonAtomic(LEDGER_PATH, l); // fsync'd: a signature saved here survives a host crash
+}
+
+// The entry memo is public on-chain. It carries an opaque tag, not the entry
+// id, so nobody can look up a waiting entry from the race wallet's history.
+function memoTag(id: string) {
+  const key = process.env.VERIFY_SIGNING_SECRET ?? "";
+  return createHmac("sha256", `race-memo:${key}`).update(id).digest("hex").slice(0, 20);
 }
 
 // global so every route bundle in the process shares one queue
@@ -166,6 +171,7 @@ type CatchRecord = { assetId: string; name: string; photo: string; spec_key?: st
 async function ownedCard(assetId: string, owner: string) {
   const rpc = heliusRpc();
   const res = await fetch(rpc, {
+    signal: AbortSignal.timeout(15_000),
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: "race", method: "getAsset", params: { id: assetId } }),
@@ -288,7 +294,7 @@ export async function createEntry(input: {
   }
   const fee = feeFor(room);
   const id = randomUUID();
-  const issued = fee > 0 ? await buildEntryTx(owner, fee, `rbola race entry ${id}`) : null;
+  const issued = fee > 0 ? await buildEntryTx(owner, fee, `rbola race entry ${memoTag(id)}`) : null;
 
   return withLedger((l) => {
     const now = Date.now();
@@ -335,12 +341,24 @@ export async function confirmEntry(id: string, signedTx: unknown) {
   try {
     sig = await submitEntryTx(signedTx, e0.message!, e0.lastValidBlockHeight!);
   } catch (err) {
+    // only if nothing moved this entry on meanwhile (the tick may already
+    // have reconciled it while this confirm hung)
     await withLedger((l) => {
-      l.entries[id].status = "awaiting_payment";
+      const e = l.entries[id];
+      if (e.status === "confirming" && e.confirmingSince === e0.confirmingSince) {
+        e.status = "awaiting_payment";
+      }
     });
     throw new RaceError(err instanceof Error ? err.message : String(err), 402);
   }
-  const out = await withLedger((l) => markPaid(l, l.entries[id], sig));
+  const out = await withLedger((l) => {
+    const e = l.entries[id];
+    // a confirm that outlived STALE_CONFIRM_MS may find the entry already
+    // adopted (searching/matched) by the tick — never mark it paid twice
+    if (e.status === "confirming" && e.confirmingSince === e0.confirmingSince) return markPaid(l, e, sig);
+    if (e.status === "awaiting_payment" && e.attemptSig === sig) return markPaid(l, e, sig);
+    return view(l, e);
+  });
   await settle(id);
   return out;
 }
@@ -535,6 +553,29 @@ function view(l: Ledger, e: Entry) {
       ? { kind: myPayout.kind, lamports: myPayout.lamports, status: myPayout.status, sig: myPayout.status === "sent" ? myPayout.sig : null }
       : null,
   };
+}
+
+// --- health (for /api/health → the server monitor; numbers only) ---
+
+export function ledgerHealth() {
+  const l = load(); // throws on a corrupt ledger → health reports not ok
+  const now = Date.now();
+  let pending = 0;
+  let oldest = 0;
+  for (const race of Object.values(l.races)) {
+    for (const p of race.payouts) {
+      if (p.status !== "pending") continue;
+      pending++;
+      oldest = Math.max(oldest, now - race.createdAt);
+    }
+  }
+  for (const e of Object.values(l.entries)) {
+    if (e.refund?.status !== "pending") continue;
+    pending++;
+    oldest = Math.max(oldest, now - (e.searchingSince ?? e.createdAt));
+  }
+  const searching = Object.values(l.entries).filter((e) => e.status === "searching").length;
+  return { pendingPayouts: pending, oldestPendingS: Math.round(oldest / 1000), searching };
 }
 
 // --- per-wallet stats (read-only: never takes the lock, never saves) ---

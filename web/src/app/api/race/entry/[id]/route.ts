@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getEntryView, raceError } from "@/lib/raceLedger";
+import { entryOwner, getEntryView, raceError } from "@/lib/raceLedger";
+import { authEnabled, callerWallet } from "@/lib/auth";
 import { allow, clientIp } from "@/lib/rateLimit";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -13,6 +14,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json({ error: "slow down" }, { status: 429 });
   }
   try {
+    // only the entry's own player may watch it: a waiting entry's car must
+    // never be visible to someone deciding whether to enter against it
+    if (authEnabled) {
+      try {
+        await callerWallet(req, entryOwner(id));
+      } catch {
+        return NextResponse.json({ error: "entry not found" }, { status: 404 });
+      }
+    }
     return NextResponse.json(await getEntryView(id));
   } catch (err) {
     return raceError(err);

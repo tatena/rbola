@@ -14,6 +14,9 @@ export function startRaceWorker() {
     if (running) return; // a slow RPC never stacks ticks
     running = true;
     tick()
+      .then(() => {
+        (globalThis as unknown as { __raceLastTick?: number }).__raceLastTick = Date.now();
+      })
       .catch((err) => console.error("race worker tick failed", err))
       .finally(() => {
         running = false;

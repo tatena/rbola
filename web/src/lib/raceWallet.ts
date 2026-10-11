@@ -18,7 +18,12 @@ const MEMO_PROGRAM = new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
 
 let conn: Connection | null = null;
 export function connection(): Connection {
-  conn ??= new Connection(heliusRpc(), "confirmed");
+  // every RPC call times out well inside the race ledger's 3-min stale-confirm
+  // window, so a hung provider can't outlive the ledger's assumptions
+  conn ??= new Connection(heliusRpc(), {
+    commitment: "confirmed",
+    fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(30_000) }),
+  });
   return conn;
 }
 
@@ -161,7 +166,15 @@ export async function txStatus(sig: string, lastValidBlockHeight: number) {
   if (st && (st.confirmationStatus === "confirmed" || st.confirmationStatus === "finalized")) {
     return "landed";
   }
-  return height > lastValidBlockHeight + DROP_MARGIN ? "dropped" : "pending";
+  if (height <= lastValidBlockHeight + DROP_MARGIN) return "pending";
+  // Helius load-balances: before calling a transfer dropped (and paying or
+  // refunding again), ask once more by full transaction lookup
+  const tx = await connection().getTransaction(sig, {
+    commitment: "finalized",
+    maxSupportedTransactionVersion: 0,
+  });
+  if (tx) return tx.meta?.err ? "dropped" : "landed";
+  return "dropped";
 }
 
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";

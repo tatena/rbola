@@ -10,7 +10,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { STATE_DIR } from "@/lib/dataDir";
+import { STATE_DIR, writeJsonAtomic } from "@/lib/dataDir";
 import Anthropic from "@anthropic-ai/sdk";
 import mainCatalog from "@/data/catalog/main.json";
 
@@ -18,6 +18,7 @@ const SPEC_MODEL = process.env.VERIFY_MODEL ?? "claude-opus-4-8";
 const PENDING_PATH = path.join(STATE_DIR, "catalog-pending.json");
 
 export type Rarity = "common" | "scarce" | "rare" | "epic" | "legendary";
+const RARITY_ORDER: Rarity[] = ["common", "scarce", "rare", "epic", "legendary"];
 
 export type Spec = {
   hp: number;
@@ -77,14 +78,16 @@ function slug(...parts: Array<string | null>): string {
 function loadPending(): CatalogEntry[] {
   try {
     return JSON.parse(fs.readFileSync(PENDING_PATH, "utf8"));
-  } catch {
-    return [];
+  } catch (err) {
+    // only a missing file is empty — a corrupt one must never be replaced
+    // (every provisional card's spec lives here)
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw err;
   }
 }
 
 function savePending(entries: CatalogEntry[]) {
-  fs.mkdirSync(path.dirname(PENDING_PATH), { recursive: true });
-  fs.writeFileSync(PENDING_PATH, JSON.stringify(entries, null, 1));
+  writeJsonAtomic(PENDING_PATH, entries);
 }
 
 export function getEntry(specKey: string): CatalogEntry | null {
@@ -144,7 +147,7 @@ async function draftSpec(
   generationHint: string | null,
   photoB64: string,
 ): Promise<SpecDraft> {
-  client ??= new Anthropic();
+  client ??= new Anthropic({ timeout: 60_000, maxRetries: 1 });
   const response = await client.messages.create({
     model: SPEC_MODEL,
     max_tokens: 512,
@@ -205,10 +208,16 @@ export async function resolveSpec(input: {
   const candidates = (mainCatalog.entries as CatalogEntry[]).filter(
     (e) => slug(e.make, e.model) === modelKey,
   );
+  // one listed generation: take it unless the recognizer named a different
+  // generation (an E30 M3 must not inherit an F80's numbers)
   if (candidates.length === 1) {
-    return verifiedResolution(candidates[0]);
+    const only = candidates[0];
+    const gen = generation ? slug(generation) : null;
+    if (!only.generation || !gen || gen.includes(slug(only.generation))) {
+      return verifiedResolution(only);
+    }
   }
-  if (candidates.length > 1) {
+  if (candidates.length >= 1) {
     // cheap disambiguation first: the recognizer's generation string
     const genSlug = generation ? slug(generation) : null;
     const byGen = genSlug
@@ -264,6 +273,9 @@ function pendingResolution(
   model: string,
   draft: SpecDraft,
 ): Resolution {
+  for (const v of [draft.hp, draft.zero_to_100, draft.top_speed_kmh, draft.weight_kg]) {
+    if (!Number.isFinite(v) || v <= 0) throw new Error("spec draft returned an invalid number");
+  }
   const spec: Spec = {
     hp: draft.hp,
     zero_to_100: draft.zero_to_100,
@@ -277,7 +289,9 @@ function pendingResolution(
     generation: draft.generation,
     years: draft.years,
     spec,
-    rarity: draft.rarity,
+    // an AI draft can't make a card epic/legendary on its own: capped at
+    // rare until founder review promotes the model (catalog poisoning guard)
+    rarity: RARITY_ORDER.indexOf(draft.rarity) > RARITY_ORDER.indexOf("rare") ? "rare" : draft.rarity,
     status: "pending",
     spec_confidence: specWithinBounds(spec) ? draft.spec_confidence : "low",
     created_at: new Date().toISOString(),

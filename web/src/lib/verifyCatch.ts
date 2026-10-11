@@ -4,6 +4,7 @@
 // verify step can't be skipped and recognition isn't paid for twice.
 
 import crypto from "node:crypto";
+import { CLUSTER } from "@/lib/cluster";
 import Anthropic from "@anthropic-ai/sdk";
 import type { Resolution } from "@/lib/catalog";
 
@@ -74,7 +75,7 @@ Rules:
 let client: Anthropic | null = null;
 
 export async function recognizePhoto(base64Jpeg: string): Promise<Verdict> {
-  client ??= new Anthropic();
+  client ??= new Anthropic({ timeout: 60_000, maxRetries: 1 });
   const response = await client.messages.create({
     model: MODEL,
     max_tokens: 1024,
@@ -135,6 +136,7 @@ export function verdictName(verdict: Verdict): string {
 // --- signed verdict token: base64url(payload).base64url(hmac) ---
 
 type TokenPayload = {
+  aud: string; // network: a staging (devnet) token never mints on mainnet
   photoSha256: string;
   verdict: Verdict;
   resolution: Resolution;
@@ -166,6 +168,7 @@ export function createVerificationToken(
   resolution: Resolution,
 ): string {
   const payload: TokenPayload = {
+    aud: CLUSTER,
     photoSha256: photoHash,
     verdict,
     resolution,
@@ -192,6 +195,7 @@ export function readVerificationToken(
       Buffer.from(body, "base64url").toString("utf8"),
     ) as TokenPayload;
     if (payload.exp < Date.now()) return null;
+    if (payload.aud !== CLUSTER) return null;
     if (payload.photoSha256 !== expectedPhotoHash) return null;
     if (!payload.resolution) return null;
     return { verdict: payload.verdict, resolution: payload.resolution };

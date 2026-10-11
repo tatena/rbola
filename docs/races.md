@@ -107,6 +107,16 @@ Scripted end-to-end with two test wallets against the running app:
   lastValidBlockHeight + 150, so a landed payout can't be resent. A confirm
   interrupted by a restart is reconciled after 3 min. Matching requires equal
   fees. Race routes are rate-limited per IP.
+- Entry memos carry an opaque HMAC tag, not the entry id, and
+  `GET /api/race/entry/:id` answers only the entry's own player (404 for
+  anyone else), so nobody can scout a waiting car before entering. The
+  confirm callbacks only act if the entry is still in the state they left it
+  ("confirming" with the same confirmingSince), so a confirm that outlives the
+  3-min stale window can't mark an entry paid twice. Every RPC call times out
+  (30s). Before treating a transfer as dropped, the full transaction is looked
+  up once more. A spec that scores NaN makes the race a tie (refund), never a
+  win by queue position. `/api/health` reports ledger readability, worker
+  heartbeat, the oldest pending payout and unsettled mints, for the monitor.
 - A background tick (`web/src/lib/raceWorker.ts`, started by
   `web/src/instrumentation.ts`, every 10s) runs no-rival refunds, lost
   confirmations and payouts even when nobody is polling. An entry whose
