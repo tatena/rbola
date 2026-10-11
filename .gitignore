@@ -30,3 +30,10 @@ Thumbs.db
 # race ledger (dev-server state, like public/catches)
 web/data/races.json
 web/data/faucet.json
+
+# keys — belt and braces (real keys live only on the server)
+**/.keys/
+**/keys/
+*keypair*.json
+*.pem
+web/data/catalog-pending.json

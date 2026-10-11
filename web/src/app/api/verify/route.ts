@@ -3,15 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveSpec } from "@/lib/catalog";
 import { allow, clientIp } from "@/lib/rateLimit";
 import {
+  MAX_PHOTO_B64_CHARS,
   createVerificationToken,
   evaluateVerdict,
   photoSha256,
   recognizePhoto,
 } from "@/lib/verifyCatch";
-
-// ≈5MB decoded — the vision API's own per-image cap; camera captures are
-// well under this (the 63-photo spike set all passed)
-const MAX_PHOTO_B64_CHARS = 6.7 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
   // fail fast before the paid recognition call

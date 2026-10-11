@@ -5,6 +5,12 @@ import { createPortal } from "react-dom";
 import { useParams, useRouter } from "next/navigation";
 import { useRaceWatch, type RaceView } from "@/lib/useRaceEntry";
 import { Marcellus } from "next/font/google";
+import {
+  TRACK_VIDEO,
+  footageElement,
+  primeFootage,
+  type Footage,
+} from "@/lib/raceFootage";
 import "../live.css";
 
 const marcellus = Marcellus({ weight: "400", subsets: ["latin"] });
@@ -22,14 +28,8 @@ const TRACK_ART: Record<string, string> = {
   "DRAG STRIP": "/tracks/drag.jpg",
 };
 
-// race footage per track (founder-generated, H.264 portrait crop); tracks
-// without one fall back to the track-art push
-const TRACK_VIDEO: Record<string, string> = {
-  "MOUNTAIN PASS": "/races/mountain.mp4",
-};
-
 const RACE_MS = 4200;
-const VIDEO_MAX_MS = 16000; // safety net if the footage stalls
+const STALL_MS = 8000; // footage that stops making progress hands over to the result
 const seenKey = (id: string) => `rbola.race.seen.${id}`;
 
 const sol = (lamports: number) => {
@@ -85,10 +85,13 @@ function useTheatre(id: string, matched: boolean, video: boolean) {
     try {
       seen = sessionStorage.getItem(seenKey(id)) === "1";
     } catch {}
-    const end = 10300 + (video ? VIDEO_MAX_MS : RACE_MS);
+    // footage ends the race beat itself (RaceFootage → finish); the art beat
+    // runs on its own clock
     const steps: Array<[number, Beat]> = seen
       ? [[0, "result"]]
-      : [...MATCH_STEPS, [end, "result"]];
+      : video
+        ? MATCH_STEPS
+        : [...MATCH_STEPS, [10300 + RACE_MS, "result"]];
     const timers = steps.map(([ms, b]) => setTimeout(() => setBeat(b), ms));
     return () => timers.forEach(clearTimeout);
   }, [id, matched, video]);
@@ -124,7 +127,7 @@ export default function RaceLive() {
   if (beat === "race")
     return createPortal(
       video ? (
-        <RaceFootage src={video} onDone={finish} />
+        <RaceFootage footage={video} view={view} onDone={finish} />
       ) : (
         <RaceBeat view={view} />
       ),
@@ -140,7 +143,7 @@ export default function RaceLive() {
       }
       cancel={cancel}
       cancelling={cancelling}
-      preload={view.status === "matched" ? video : undefined}
+      preload={view.status === "matched" ? video?.src : undefined}
     />
   );
 }
@@ -168,6 +171,9 @@ function Matchmaking({
   cancelling: boolean;
   preload?: string; // race footage, fetched during VS so it starts instantly
 }) {
+  useEffect(() => {
+    if (preload) primeFootage(preload);
+  }, [preload]);
   const has = (...b: Beat[]) => b.includes(beat);
   const searching = has("reset", "search");
   const vs = has("vs", "go", "out");
@@ -463,16 +469,6 @@ function Matchmaking({
         </div>
       </div>
 
-      {preload && (
-        <video
-          src={preload}
-          muted
-          playsInline
-          preload="auto"
-          className="hidden"
-        />
-      )}
-
       {/* fade to black into the race (the nav stays) */}
       <div
         className="pointer-events-none absolute inset-0 z-[7] bg-[#0A0A0F]"
@@ -616,39 +612,89 @@ function Badge({
 
 // ---------- RACE — the track's footage, start to finish ----------
 
-function RaceFootage({ src, onDone }: { src: string; onDone: () => void }) {
-  const ref = useRef<HTMLVideoElement>(null);
+function RaceFootage({
+  footage,
+  view,
+  onDone,
+}: {
+  footage: Footage;
+  view: RaceView;
+  onDone: () => void;
+}) {
+  const box = useRef<HTMLDivElement>(null);
   const [fading, setFading] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  // the shared element (unlocked for sound by the ENTER tap) plays here;
+  // without that tap (e.g. a reload) it autoplays muted with a SOUND toggle
   useEffect(() => {
-    // autoplay can be refused (e.g. iOS low-power mode): skip to the result
-    ref.current?.play().catch(onDone);
-  }, [onDone]);
+    const v = primeFootage(footage.src);
+    v.className = `absolute inset-0 h-full w-full ${footage.fit === "cover" ? "object-cover" : "object-contain"}`;
+    box.current?.prepend(v);
+    let last = Date.now();
+    const onTime = () => {
+      last = Date.now();
+      if (v.duration && v.duration - v.currentTime < 0.6) setFading(true);
+    };
+    const fail = () => setFailed(true);
+    v.addEventListener("timeupdate", onTime);
+    v.addEventListener("ended", onDone);
+    v.addEventListener("error", fail);
+    v.currentTime = 0;
+    v.muted = false;
+    v.play().catch(() => {
+      v.muted = true;
+      setMuted(true);
+      v.play().catch(fail);
+    });
+    // a stalled stream must not trap the player on a frozen frame
+    const stall = setInterval(() => {
+      if (Date.now() - last > STALL_MS) fail();
+    }, 1000);
+    return () => {
+      clearInterval(stall);
+      v.removeEventListener("timeupdate", onTime);
+      v.removeEventListener("ended", onDone);
+      v.removeEventListener("error", fail);
+      v.pause();
+      v.remove();
+    };
+  }, [footage, onDone]);
+
+  // footage unavailable: the track-art beat, then the result
+  useEffect(() => {
+    if (!failed) return;
+    const t = setTimeout(onDone, RACE_MS);
+    return () => clearTimeout(t);
+  }, [failed, onDone]);
+  if (failed) return <RaceBeat view={view} />;
+
   return (
-    <div className="fixed inset-0 z-30 mx-auto w-full max-w-[430px] overflow-hidden bg-[#07070A]">
-      <video
-        ref={ref}
-        src={src}
-        muted
-        playsInline
-        autoPlay
-        preload="auto"
-        className="absolute inset-0 h-full w-full object-cover"
-        onTimeUpdate={(e) => {
-          const v = e.currentTarget;
-          if (v.duration && v.duration - v.currentTime < 0.6) setFading(true);
-        }}
-        onEnded={onDone}
-        onError={onDone}
-      />
+    <div
+      ref={box}
+      className="fixed inset-0 z-30 mx-auto w-full max-w-[430px] overflow-hidden bg-[#07070A]"
+    >
       <div
-        className="absolute inset-0"
+        className="pointer-events-none absolute inset-0"
         style={{
           background:
             "radial-gradient(ellipse at 50% 50%,rgba(7,7,10,0) 45%,rgba(7,7,10,.6) 100%)",
         }}
       />
+      {muted && (
+        <button
+          onClick={() => {
+            footageElement().muted = false;
+            setMuted(false);
+          }}
+          className="absolute right-5 top-[max(env(safe-area-inset-top),16px)] z-[2] mt-[14px] rounded-full border-[.5px] border-[rgba(233,231,226,.25)] bg-[rgba(10,10,15,.5)] px-[14px] py-[9px] pl-[calc(14px+.28em)] font-mono text-[8.5px] tracking-[.28em] text-foreground/80"
+        >
+          SOUND
+        </button>
+      )}
       <div
-        className="absolute inset-0 bg-[#0A0A0F]"
+        className="pointer-events-none absolute inset-0 bg-[#0A0A0F]"
         style={{ transition: "opacity .5s ease", opacity: fading ? 1 : 0 }}
       />
     </div>

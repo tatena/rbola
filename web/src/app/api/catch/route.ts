@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { CATCHES_DIR, REGISTRY_PATH } from "@/lib/dataDir";
@@ -9,15 +10,29 @@ import {
   parseLeafFromMintV2Transaction,
 } from "@metaplex-foundation/mpl-bubblegum";
 import { keypairIdentity, none, publicKey } from "@metaplex-foundation/umi";
+import { AuthError, authEnabled, authError, callerWallet } from "@/lib/auth";
+import { allow, clientIp } from "@/lib/rateLimit";
 import {
+  MAX_PHOTO_B64_CHARS,
   evaluateVerdict,
   photoSha256,
   readVerificationToken,
   verdictName,
+  type VerifiedCatch,
 } from "@/lib/verifyCatch";
 
 // the spike tree from step 5 — 16k card slots
 const TREE = "7hZ1FXsYbFWon6rxrJydouX5dcsATMSFejsnNR4My41u";
+
+// exact-photo hashes being minted right now; with the registry check below
+// this makes every verified photo mint exactly once, ever (the verify token
+// alone is reusable for its 10-minute life)
+const minting = ((globalThis as unknown as { __minting?: Set<string> }).__minting ??=
+  new Set<string>());
+
+function readRegistry(): Record<string, unknown>[] {
+  return fs.existsSync(REGISTRY_PATH) ? JSON.parse(fs.readFileSync(REGISTRY_PATH, "utf8")) : [];
+}
 
 export async function POST(req: NextRequest) {
   const { photo, lat, lon, frame, owner, verification } = await req.json();
@@ -25,35 +40,93 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "photo is required" }, { status: 400 });
   }
   const b64 = String(photo).replace(/^data:image\/\w+;base64,/, "");
+  if (b64.length > MAX_PHOTO_B64_CHARS) {
+    return NextResponse.json({ error: "photo too large" }, { status: 413 });
+  }
+
+  // mint to the logged-in caller's own wallet — the posted owner is only a
+  // claim checked against their Privy session. The founder-wallet fallback
+  // exists only for dev builds without auth configured.
+  let leafOwner: string;
+  if (authEnabled) {
+    try {
+      leafOwner = await callerWallet(req, owner);
+    } catch (e) {
+      if (e instanceof AuthError) return authError(e);
+      throw e;
+    }
+  } else {
+    const validOwner =
+      typeof owner === "string" && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(owner);
+    leafOwner = validOwner ? owner : process.env.CATCH_OWNER!;
+  }
+
+  // every mint is paid by the server payer — cap it per wallet and network
+  if (
+    !allow(`catch:${leafOwner}`, 20, 3600_000) ||
+    !allow(`catch:ip:${clientIp(req)}`, 40, 3600_000)
+  ) {
+    return NextResponse.json(
+      { error: "too many catches — try again later" },
+      { status: 429 },
+    );
+  }
 
   // mint only verified catches: the /api/verify verdict arrives as a signed
   // token bound to this exact photo, so the gate can't be skipped or replayed
   // onto a different image
+  const photoHash = photoSha256(b64);
   const verified =
     typeof verification === "string"
-      ? readVerificationToken(verification, photoSha256(b64))
+      ? readVerificationToken(verification, photoHash)
       : null;
   // defense in depth: a valid signature alone isn't enough — the embedded
-  // verdict must also pass the gate rule
+  // verdict must also pass the gate rule. The code tells the client a fresh
+  // verify can fix this (expired token), unlike an auth error.
   if (!verified || !evaluateVerdict(verified.verdict).passed) {
     return NextResponse.json(
-      { error: "catch is not verified" },
+      { error: "catch is not verified", code: "token_invalid" },
       { status: 403 },
     );
   }
-  const { verdict, resolution } = verified;
-  const name = verdictName(verdict);
-  // mint to the player's wallet; the founder-wallet fallback exists only for
-  // dev builds without auth configured
-  const validOwner =
-    typeof owner === "string" && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(owner);
-  if (!validOwner && process.env.NEXT_PUBLIC_PRIVY_APP_ID) {
-    return NextResponse.json({ error: "sign in to mint" }, { status: 401 });
+
+  // claim the photo: check + reserve run synchronously, so two concurrent
+  // posts of the same photo can't both pass
+  if (minting.has(photoHash) || readRegistry().some((r) => r.photoSha256 === photoHash)) {
+    return NextResponse.json(
+      { error: "this photo is already minted" },
+      { status: 409 },
+    );
   }
-  const leafOwner = validOwner ? owner : process.env.CATCH_OWNER!;
+  minting.add(photoHash);
+  try {
+    return await mint({ b64, photoHash, lat, lon, frame, leafOwner, ...verified });
+  } finally {
+    minting.delete(photoHash);
+  }
+}
+
+async function mint({
+  b64,
+  photoHash,
+  lat,
+  lon,
+  frame,
+  leafOwner,
+  verdict,
+  resolution,
+}: {
+  b64: string;
+  photoHash: string;
+  lat: unknown;
+  lon: unknown;
+  frame: unknown;
+  leafOwner: string;
+} & VerifiedCatch) {
+  const name = verdictName(verdict);
 
   // v0: photos live on the dev server's disk; real hosting (Irys) comes later
-  const id = Date.now().toString(36);
+  const id = crypto.randomBytes(8).toString("hex");
   const dir = CATCHES_DIR;
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, `${id}.jpg`), Buffer.from(b64, "base64"));
@@ -116,13 +189,13 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const indexPath = REGISTRY_PATH;
-  const index = fs.existsSync(indexPath)
-    ? JSON.parse(fs.readFileSync(indexPath, "utf8"))
-    : [];
+  // read + append with no await in between, so concurrent mints can't drop
+  // each other's entries
+  const index = readRegistry();
   index.push({
     assetId: leaf.id,
     photo: `/catches/${id}.jpg`,
+    photoSha256: photoHash,
     name,
     lat: lat ?? null,
     lon: lon ?? null,
@@ -137,7 +210,7 @@ export async function POST(req: NextRequest) {
     provisional: resolution.provisional,
     catalog_version: resolution.catalog_version,
   });
-  fs.writeFileSync(indexPath, JSON.stringify(index, null, 1));
+  fs.writeFileSync(REGISTRY_PATH, JSON.stringify(index, null, 1));
 
   return NextResponse.json({ assetId: leaf.id });
 }

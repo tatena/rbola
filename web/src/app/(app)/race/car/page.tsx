@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useOwner } from "@/lib/useOwner";
 import { useRaceEntry } from "@/lib/useRaceEntry";
 import RaceProgress from "../RaceProgress";
+import { unlockFootage } from "@/lib/raceFootage";
 
 // Race flow step 3 — SELECT CAR (locked 2026-10-08: the garage 3D ring
 // carousel reused, filtered to the seated rarity room; the ENTER CTA states
@@ -317,10 +318,12 @@ export default function RaceCarSelect() {
     if (race.phase === "error") return race.reset();
     if (ctaDead || !activeVM) return;
     sessionStorage.setItem("rbola.race.car", activeVM.key);
+    const track = sessionStorage.getItem("rbola.race.track") ?? "HIGHWAY RUN";
+    unlockFootage(track); // must run inside the tap, before any await
     const id = await race.enter({
       owner,
       assetId: activeVM.key,
-      track: sessionStorage.getItem("rbola.race.track") ?? "HIGHWAY RUN",
+      track,
       room: isPractice ? "practice" : roomName!.toLowerCase(),
     });
     if (id) router.push(`/race/live/${id}`);

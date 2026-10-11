@@ -10,6 +10,10 @@ import type { Resolution } from "@/lib/catalog";
 const MODEL = process.env.VERIFY_MODEL ?? "claude-opus-4-8";
 const TOKEN_TTL_MS = 10 * 60 * 1000;
 
+// ≈5MB decoded — the vision API's own per-image cap; camera captures are
+// well under this (the 63-photo spike set all passed)
+export const MAX_PHOTO_B64_CHARS = 6.7 * 1024 * 1024;
+
 export type Verdict = {
   is_car: boolean;
   make: string | null;

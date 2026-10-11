@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { authHeaders } from "@/lib/authHeaders";
 import { shortAddress, useOwner } from "@/lib/useOwner";
 
 // TEMPORARY tool for the pitch-deck shoot: bulk-upload car photos and mint
@@ -94,7 +95,7 @@ export default function UploadPage() {
 
         const res = await fetch("/api/catch", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: await authHeaders(),
           body: JSON.stringify({
             photo: row.dataUrl,
             verification: verdict.token,

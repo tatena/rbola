@@ -19,12 +19,20 @@ Create `web/.env.local` (gitignored):
 
 ```
 NEXT_PUBLIC_PRIVY_APP_ID=   # Privy app id (client-side, enables login)
+PRIVY_VERIFICATION_KEY=     # Privy ES256 public key, base64 body only (server checks sessions)
+PRIVY_APP_SECRET=           # Privy app secret (server looks up a user's wallets)
 HELIUS_API_KEY=             # Helius devnet RPC + DAS
-PAYER_KEYPAIR_PATH=         # local path to the devnet payer keypair
-CATCH_OWNER=                # fallback wallet for mints when logged out
+PAYER_KEYPAIR_PATH=         # local path to the devnet mint payer keypair
+CATCH_OWNER=                # fallback wallet for dev builds without Privy
+ANTHROPIC_API_KEY=          # catch verification (vision)
+VERIFY_SIGNING_SECRET=      # HMAC key for verdict tokens
+RACE_KEYPAIR_PATH=          # race wallet (pots), separate from the payer
+RACE_ALLOW_PROVISIONAL=     # devnet only: 1 lets provisional cards into paid races
+FAUCET_KEYPAIR_PATH=        # devnet starter-SOL faucet (refuses on any other cluster)
+DATA_DIR=                   # prod: catches + state outside the app folder
 ```
 
-Without the server vars the app still runs; minting and garage reads are disabled. Never deploy the server vars to public hosting: the mint endpoint must stay dead in production until verification exists.
+With Privy configured, routes that mint, drip SOL or touch a race entry require the player's session (`src/lib/auth.ts`) and fail closed if either Privy server secret is missing. Never put server vars in Vercel env: the app runs on its own server (`../deploy/`).
 
 ## Layout
 

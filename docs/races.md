@@ -89,15 +89,31 @@ Scripted end-to-end with two test wallets against the running app:
 - `web/src/lib/raceLedger.ts` — ledger (`web/data/races.json`), lock, flows, payouts.
 - `web/src/lib/raceWallet.ts` — race wallet, entry-tx build/verify, payout send.
 - `web/src/lib/useRaceEntry.ts` — client: `enter()` creates → signs → confirms and resolves with the entry id; `useRaceWatch(id)` polls it and exposes cancel.
-- `web/src/app/(app)/race/live/[id]/` — post-commit screens keyed by entry id (survive reload): MATCHMAKING (Claude Design "Matchmaking v3": empty rival seat + your card, LEAVE = cancel/full refund; on match the rival card drops face-down, flips, driver name lands) → race beat (track footage from `web/public/races/<track>.mp4` where one exists — Mountain Pass 10-10, H.264 portrait crop, plays to the end, falls back to the track-art beat if autoplay is refused; other tracks = track-art beat) → RESULT (SOL line + payout tx on Explorer).
+- `web/src/app/(app)/race/live/[id]/` — post-commit screens keyed by entry id (survive reload): MATCHMAKING (Claude Design "Matchmaking v3": empty rival seat + your card, LEAVE = cancel/full refund; on match the rival card drops face-down, flips, driver name lands) → race beat (track footage from `web/public/races/<track>.mp4` where one exists — Mountain Pass = native 9:16 footage (founder upload 10-10, H.264 1080×1920 transcode; raw HEVC original in card-assets/track-art-originals/), full-bleed; Drag Strip = wider crop letterboxed so both cars stay in shot; with original sound: one shared <video> (`web/src/lib/raceFootage.ts`) is started-and-paused inside the ENTER tap so it may later autoplay with sound; without that tap (reload) it autoplays muted with a SOUND toggle; plays to the end; unplayable or stalled 8s → track-art beat → result; Highway Run = track-art beat until its footage lands) → RESULT (SOL line + payout tx on Explorer).
 - `web/data/house-cars.json` — house roster, rotated deterministically per room.
 
 ## Known limits (v0)
 
-- The API trusts the posted wallet address (no server-side Privy session check
-  yet). Funds stay safe: an entry is only paid by a transfer that wallet
-  signed, and payouts or refunds only go back to the paying wallet.
+- Entry, confirm and cancel check the caller's Privy session
+  (`web/src/lib/auth.ts`): you can only enter with your own wallet and only
+  confirm or cancel your own entry. Logged out = practice only. Polling an
+  entry (`GET`, unguessable id) and `/api/race/stats` stay public — race
+  outcomes and payouts are public on-chain anyway.
+- No background worker yet: house seating and payouts run when the entry is
+  polled, confirmed or cancelled.
 - The ledger is a JSON file on one server process, which is fine for a demo.
   A database is needed before multiple instances run.
 - The house as counterparty is devnet-only. Paid races on mainnet wait for a
   legal review.
+- The starter-SOL faucet (`web/src/lib/faucet.ts`) is devnet-only by code: it
+  checks the cluster's genesis hash before every drip and refuses anywhere
+  but devnet, whatever the env says. It also requires a logged-in session.
+
+## Mainnet keys (runbook, not done yet)
+
+- Generate fresh mint-payer and race keypairs for mainnet; never reuse the
+  devnet keys (`scripts/.keys/*`), and never create a faucet key there.
+- Keep only small working balances in the server (hot) wallets; sweep the
+  race wallet's surplus to a multisig on a schedule.
+- Keys live only on the server (`/srv/rbola/keys`, mode 600) — never in a
+  repo, never in Vercel env.

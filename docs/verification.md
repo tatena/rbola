@@ -140,7 +140,18 @@ re-runs `evaluateVerdict` on the embedded verdict. Consequences:
 - a token cannot be forged or modified without `VERIFY_SIGNING_SECRET`,
   which never leaves the server
 - an expired token is recoverable: the mint store re-verifies the same photo
-  for a fresh token and retries once (the photo must pass the gate again)
+  for a fresh token and retries once (the photo must pass the gate again);
+  the 403 carries `code: "token_invalid"` so an auth error never triggers a
+  paid re-verify
+- **each photo mints once, ever** — the token itself lives 10 minutes, so
+  `/api/catch` also records the photo's SHA-256 in the catch registry and
+  answers 409 to any later mint of the same bytes (an in-memory "minting now"
+  set covers concurrent posts)
+- **the card mints to the caller's own wallet** — the request carries the
+  player's Privy access token; the server verifies it and accepts the posted
+  wallet only if it belongs to that user (`web/src/lib/auth.ts`, see below)
+- mints are rate-limited (20/hour per wallet, 40/hour per network) and the
+  photo size is capped like `/api/verify`
 
 This is the signed-JWT pattern without the library — one secret, one
 algorithm, no header to confuse.
@@ -162,21 +173,34 @@ is no unverified path to `/api/catch`.
 | `ANTHROPIC_API_KEY` | vision API access (server-side only) |
 | `VERIFY_SIGNING_SECRET` | HMAC key for verdict tokens (e.g. `openssl rand -hex 32`) |
 | `VERIFY_MODEL` | optional model override (default `claude-opus-4-8`) |
+| `PRIVY_VERIFICATION_KEY` | Privy's ES256 public key (dashboard → App settings) — verifies access tokens. Safest env form: only the base64 body, without the BEGIN/END lines (full or `\n`-escaped PEM also parse, but bash sourcing mangles unquoted `\n`) |
+| `PRIVY_APP_SECRET` | Privy app secret (server-side only) — looks up which wallets a user owns |
+
+### Caller identity (`web/src/lib/auth.ts`)
+
+Routes that mint, drip SOL or touch a race entry never trust the posted
+`owner`. The client sends `Authorization: Bearer <Privy access token>`
+(`web/src/lib/authHeaders.ts`); the server verifies the JWT (ES256, issuer
+`privy.io`, audience = app id) and looks up that user's Solana wallets via
+Privy's REST API (cached 5 minutes, refetched once on a miss because the
+embedded wallet appears just after first login). No/invalid session → 401;
+someone else's wallet → 403. With Privy configured but either secret
+missing, these routes fail closed (500). `/api/verify` stays open on purpose:
+a signed-out player can shoot and verify first, then log in to mint.
 
 ## Known gaps (v0, deliberately sequenced)
 
-- **No owner binding** — the token is bound to the photo, not the minting
-  wallet; lands with the auth wiring.
-- **No dedup yet** — the same physical car can be caught repeatedly. Planned:
+- **No dedup of the same car yet** — exact-photo re-mints are blocked, but the
+  same physical car can be caught again in a new photo. Planned:
   perceptual hash + plate hash (the model already reads visible plates) +
   GPS/time clustering.
 - **No GPS/timestamp plausibility checks yet** — separate layer.
-- **Main catalog is empty (v0)** — until the curated seed list is reviewed
-  and frozen as catalog v1, every first catch of a model takes the pending
-  path (one extra AI call, ~3s, ~$0.03) and mints provisional. Shrinks as
-  the main catalog grows.
+- **Main catalog is small (v1, 14 models)** — every first catch of an
+  unlisted model takes the pending path (one extra AI call, ~3s, ~$0.03) and
+  mints provisional. Shrinks as the main catalog grows.
 - **Stat normalization is a first guess** — `deriveStats` ranges spread the
   real fleet across 1–100 but haven't been tuned against the race engine
   (which doesn't exist yet).
-- **No rate limiting** on `/api/verify` — each call costs real money; needed
-  before public exposure.
+- **Rate limits are in memory** (`/api/verify` 30/hour per network + 600/day
+  overall; `/api/catch` as above) — fine for one server process, they reset on
+  restart.

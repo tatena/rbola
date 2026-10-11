@@ -33,6 +33,21 @@ function readLog(): Record<string, string> {
   }
 }
 
+// Hard devnet lock that doesn't depend on env: the faucet refuses on any
+// cluster whose genesis isn't devnet's, even if a faucet keypair is set there.
+const DEVNET_GENESIS = "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG";
+let onDevnet: Promise<boolean> | null = null;
+function isDevnet(): Promise<boolean> {
+  onDevnet ??= connection()
+    .getGenesisHash()
+    .then((h) => h === DEVNET_GENESIS)
+    .catch((e) => {
+      onDevnet = null; // RPC hiccup — ask again next time
+      throw e;
+    });
+  return onDevnet;
+}
+
 // serialize drips so two tabs can't both pass the "never dripped" check
 let queue: Promise<unknown> = Promise.resolve();
 
@@ -40,6 +55,7 @@ export function drip(owner: string, allowSend: () => boolean): Promise<{ sent: b
   const run = queue.then(async () => {
     const faucet = faucetKeypair();
     if (!faucet) return { sent: false, reason: "faucet not configured" };
+    if (!(await isDevnet())) return { sent: false, reason: "faucet is devnet-only" };
     const log = readLog();
     if (log[owner]) return { sent: false, reason: "already dripped" };
     const to = new PublicKey(owner);

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { AuthError, authEnabled, authError, callerWallet } from "@/lib/auth";
 import { drip } from "@/lib/faucet";
 import { allow, clientIp } from "@/lib/rateLimit";
 
@@ -12,6 +13,15 @@ export async function POST(req: NextRequest) {
   }
   if (typeof owner !== "string" || !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(owner)) {
     return NextResponse.json({ error: "owner is required" }, { status: 400 });
+  }
+  // drips go only to the logged-in caller's own wallet
+  if (authEnabled) {
+    try {
+      await callerWallet(req, owner);
+    } catch (e) {
+      if (e instanceof AuthError) return authError(e);
+      throw e;
+    }
   }
   // fresh emails are free to make — cap actual drips per network per day
   const ip = clientIp(req);

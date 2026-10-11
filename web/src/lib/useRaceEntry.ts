@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSignTransaction, useWallets } from "@privy-io/react-auth/solana";
+import { authHeaders } from "@/lib/authHeaders";
 import { hasAuth } from "@/lib/useOwner";
 
 // Race entry client: create entry → the player's wallet signs the server-built
@@ -55,7 +56,7 @@ const b64ToBytes = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0
 const bytesToB64 = (b: Uint8Array) => btoa(String.fromCharCode(...b));
 
 async function api(url: string, body?: object): Promise<RaceView & { entry?: RaceView; tx?: string | null }> {
-  const res = await fetch(url, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : { cache: "no-store" });
+  const res = await fetch(url, body ? { method: "POST", headers: await authHeaders(), body: JSON.stringify(body) } : { cache: "no-store" });
   const json = await res.json();
   if (!res.ok) throw new Error(json.error ?? `race request failed (${res.status})`);
   return json;

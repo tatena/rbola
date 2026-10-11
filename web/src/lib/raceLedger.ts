@@ -10,6 +10,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { AuthError, authError } from "@/lib/auth";
 import { REGISTRY_PATH, STATE_DIR } from "@/lib/dataDir";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
@@ -104,6 +105,7 @@ export class RaceError extends Error {
 }
 
 export function raceError(err: unknown) {
+  if (err instanceof AuthError) return authError(err);
   if (err instanceof RaceError) {
     return NextResponse.json({ error: err.message }, { status: err.status });
   }
@@ -288,6 +290,13 @@ export async function createEntry(input: {
     e.lastValidBlockHeight = issued.lastValidBlockHeight;
     return { entry: view(l, e), tx: issued.tx };
   });
+}
+
+// who may confirm/cancel an entry — routes check it against the caller's session
+export function entryOwner(id: string): string {
+  const e = load().entries[id];
+  if (!e) throw new RaceError("entry not found", 404);
+  return e.owner;
 }
 
 export async function confirmEntry(id: string, signedTx: unknown) {

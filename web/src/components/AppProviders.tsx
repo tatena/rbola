@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { PrivyProvider } from "@privy-io/react-auth";
 import { createSolanaRpc, createSolanaRpcSubscriptions } from "@solana/kit";
+import { authHeaders } from "@/lib/authHeaders";
 import { useOwner } from "@/lib/useOwner";
 
 // App-wide auth (Privy, chosen in the wallet spike). Without the app id the
@@ -52,11 +53,10 @@ function StarterSol() {
     try {
       if (localStorage.getItem(key)) return;
     } catch {}
-    fetch("/api/faucet", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ owner }),
-    })
+    authHeaders()
+      .then((headers) =>
+        fetch("/api/faucet", { method: "POST", headers, body: JSON.stringify({ owner }) }),
+      )
       .then((r) => r.json())
       .then((j) => {
         // settled for good once sent, or the server says it never will be
