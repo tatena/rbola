@@ -17,6 +17,7 @@ import {
   setGarageCache,
 } from "@/lib/mintStore";
 import { useOwner } from "@/lib/useOwner";
+import { cardNumber, placeFor } from "@/lib/cardFace";
 
 type ApiCard = {
   assetId: string;
@@ -51,29 +52,6 @@ function statsFor(seed: string | null): { label: string; value: number }[] {
     for (const ch of seed) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
     return { label, value: 40 + (Math.abs(h) % 58) };
   });
-}
-
-// placeholder until reverse geocoding lands — GPS catches read as Tbilisi,
-// the rest get a stable pseudo-random city per card
-const CITIES = [
-  "BERLIN",
-  "MIAMI",
-  "MONACO",
-  "GOODWOOD",
-  "TOKYO",
-  "LONDON",
-  "DUBAI",
-  "MILAN",
-];
-function placeFor(
-  lat: number | null | undefined,
-  lon: number | null | undefined,
-  seed: string,
-) {
-  if (typeof lat === "number" && typeof lon === "number") return "TBILISI";
-  let h = 2166136261;
-  for (const ch of seed) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
-  return CITIES[Math.abs(h) % CITIES.length];
 }
 
 function dateFor(iso: string | null | undefined) {
@@ -209,11 +187,14 @@ export default function GaragePage() {
         img: draft.photo,
         num:
           !sealed && draft.assetId
-            ? `#${draft.assetId.slice(-4).toUpperCase()}`
+            ? cardNumber(draft.assetId)
             : "PENDING",
         rarity: sealed ? "SEALING" : "RARE",
         date: dateFor(draft.caughtAt ?? new Date().toISOString()),
-        place: placeFor(draft.lat, draft.lon, draft.assetId ?? draft.name),
+        place: placeFor(
+          typeof draft.lat === "number" && typeof draft.lon === "number",
+          draft.assetId ?? draft.name,
+        ),
         stats: statsFor(sealed ? null : draft.assetId),
         sealing: sealed,
         mintFailed: draft.status === "error",
@@ -228,10 +209,13 @@ export default function GaragePage() {
         key: c.assetId,
         name: stripPrefix(c.name),
         img: c.photo,
-        num: `#${c.assetId.slice(-4).toUpperCase()}`,
+        num: cardNumber(c.assetId),
         rarity: c.rarity ?? "RARE",
         date: dateFor(c.time),
-        place: placeFor(c.lat, c.lon, c.assetId),
+        place: placeFor(
+          typeof c.lat === "number" && typeof c.lon === "number",
+          c.assetId,
+        ),
         stats: statsFor(c.assetId),
         sealing: false,
         mintFailed: false,

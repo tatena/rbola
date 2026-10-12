@@ -20,6 +20,7 @@ import { CLUSTER, heliusRpc } from "@/lib/cluster";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getEntry, type Rarity, type Spec } from "@/lib/catalog";
+import { placeFor } from "@/lib/cardFace";
 import {
   feeFor,
   isRoom,
@@ -52,6 +53,7 @@ export type Car = {
   photo: string | null;
   rarity: Rarity | null;
   spec: Spec;
+  gps?: boolean; // caught with a location (card-face city)
 };
 
 type Payout = {
@@ -171,7 +173,14 @@ function withLedger<T>(fn: (l: Ledger) => T | Promise<T>): Promise<T> {
 
 // --- cards ---
 
-type CatchRecord = { assetId: string; name: string; photo: string; spec_key?: string };
+type CatchRecord = {
+  assetId: string;
+  name: string;
+  photo: string;
+  spec_key?: string;
+  lat?: number | null;
+  lon?: number | null;
+};
 
 async function ownedCard(assetId: string, owner: string) {
   const rpc = heliusRpc();
@@ -198,6 +207,7 @@ async function ownedCard(assetId: string, owner: string) {
     photo: rec.photo.replace(/^\/catches\//, "/api/photo/"),
     rarity: entry.rarity,
     spec: entry.spec,
+    gps: typeof rec.lat === "number" && typeof rec.lon === "number",
   };
   return { car, provisional: entry.status !== "verified" };
 }
@@ -584,7 +594,13 @@ function view(l: Ledger, e: Entry) {
     track: e.track,
     room: e.room,
     fee: e.fee,
-    car: { assetId: e.car.assetId, name: e.car.name, photo: e.car.photo, rarity: e.car.rarity },
+    car: {
+      assetId: e.car.assetId,
+      name: e.car.name,
+      photo: e.car.photo,
+      rarity: e.car.rarity,
+      place: e.car.assetId ? placeFor(!!e.car.gps, e.car.assetId) : null,
+    },
     reason: e.endReason ?? null,
     paySig: e.paySig ?? null,
     opponent: oppCar

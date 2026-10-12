@@ -18,7 +18,13 @@ export type RaceView = {
   track: string;
   room: string;
   fee: number;
-  car: { assetId: string | null; name: string; photo: string | null; rarity: string | null };
+  car: {
+    assetId: string | null;
+    name: string;
+    photo: string | null;
+    rarity: string | null;
+    place: string | null; // card-face city
+  };
   reason: "left" | "no_rival" | null; // why a cancelled entry ended
   paySig: string | null;
   opponent: { name: string; photo: string | null; rarity: string | null; driver: string } | null;

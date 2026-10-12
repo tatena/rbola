@@ -14,6 +14,7 @@ import {
   type Footage,
 } from "@/lib/raceFootage";
 import { explorerTx } from "@/lib/cluster";
+import { cardNumber } from "@/lib/cardFace";
 import "../live.css";
 
 const marcellus = Marcellus({ weight: "400", subsets: ["latin"] });
@@ -740,41 +741,251 @@ function RaceBeat({ view }: { view: RaceView }) {
 
 // ---------- RESULT ----------
 
+// Race Result (Claude Design, 10-12): the ground you raced on, the verdict
+// letter by letter under the track name, your card with a ring drawn round
+// it. A win stays in colour and the ring is gold; a loss drains to grey.
+// No figures on screen.
 function Result({ view }: { view: RaceView }) {
+  const router = useRouter();
+  const again = useRaceAgain();
   const outcome = view.result!.outcome;
-  const practice = view.room === "practice";
-  const p = view.payout;
+  const won = outcome === "win";
+  const lost = outcome === "loss";
   const art = TRACK_ART[view.track];
-  // the backdrop is whoever took the line (tie: your car)
-  const hero =
-    outcome === "loss" ? (view.opponent?.photo ?? null) : view.car.photo;
-  const headline =
-    outcome === "win"
-      ? "You won"
-      : outcome === "tie"
-        ? "Dead heat"
-        : "Outpaced";
 
-  let money: React.ReactNode = null;
-  if (!practice) {
-    if (outcome === "win" && p) {
-      money = <Odometer text={`+${sol(p.lamports)}`} unit="SOL" gold />;
-    } else if (outcome === "tie" && p) {
-      money = <Odometer text={sol(p.lamports)} unit="SOL REFUNDED" />;
-    } else if (outcome === "loss") {
-      money = <Odometer text={`−${sol(view.fee)}`} unit="SOL" muted />;
-    }
-  }
+  // the card is drawn at 402-wide design scale and shrinks to fit
+  const stage = useRef<HTMLDivElement>(null);
+  const [k, setK] = useState(1);
+  useEffect(() => {
+    const el = stage.current;
+    if (!el) return;
+    const fit = () =>
+      setK(Math.min(1, el.clientWidth / 244, el.clientHeight / 390));
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const headline = won ? "YOU WON" : lost ? "YOU LOST" : "DEAD HEAT";
 
   return (
-    <Ending
-      headline={headline}
-      hero={hero}
-      art={art}
-      money={money}
-      link={!practice && p ? p : null}
-    />
+    <div
+      className="relative flex h-dvh flex-col overflow-hidden"
+      style={{
+        background: "#0A0A0F",
+        paddingTop: "max(env(safe-area-inset-top), 16px)",
+        paddingBottom: "calc(max(env(safe-area-inset-bottom), 16px) + 79px)",
+      }}
+    >
+      {/* the ground you raced on */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div
+          className="rr-drift absolute inset-0"
+          style={{
+            transform: "scale(1.06)",
+            filter: lost
+              ? "grayscale(1) brightness(.75)"
+              : "saturate(.85) contrast(1.08)",
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={art} alt="" className="h-full w-full object-cover" />
+        </div>
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(180deg,rgba(10,10,15,.6) 0%,rgba(10,10,15,.78) 40%,rgba(10,10,15,.92) 70%,#0A0A0F 88%)",
+          }}
+        />
+      </div>
+
+      {/* track + verdict */}
+      <div className="relative flex flex-col items-center gap-3 pt-[40px]">
+        <span
+          className={`${marcellus.className} rl-fade pl-[.32em] text-[13px] leading-none tracking-[.32em] text-foreground/60`}
+          style={{ animationDelay: ".1s", animationDuration: "1s" }}
+        >
+          {view.track}
+        </span>
+        <h1
+          className="flex pl-[.14em] font-extralight leading-none tracking-[.14em]"
+          style={{
+            fontSize: "min(46px, 11vw)",
+            color: won ? "#C9B37E" : "rgba(242,241,238,.7)",
+          }}
+          aria-label={headline}
+        >
+          {[...headline].map((ch, i) => (
+            <span
+              key={i}
+              aria-hidden
+              className={`inline-block whitespace-pre ${won ? "rr-in-up" : "rr-in-down"}`}
+              style={{ animationDelay: `${0.5 + i * 0.07}s` }}
+            >
+              {ch}
+            </span>
+          ))}
+        </h1>
+      </div>
+
+      {/* your card */}
+      <div ref={stage} className="relative my-6 min-h-0 flex-1">
+        <div
+          className="absolute left-1/2 top-1/2 h-[390px] w-[244px]"
+          style={{ transform: `translate(-50%,-50%) scale(${k})` }}
+        >
+          <div
+            className={`relative h-full w-full ${won ? "rr-card-win" : "rr-card-rest"}`}
+            style={{ transform: won ? undefined : "scale(.96)" }}
+          >
+            <div
+              className="absolute inset-0 overflow-hidden rounded-[20px]"
+              style={{
+                background: "#101016",
+                border: ".5px solid rgba(233,231,226,.3)",
+                boxShadow: won
+                  ? "0 0 70px rgba(201,179,126,.14),0 34px 70px rgba(0,0,0,.65)"
+                  : "0 34px 70px rgba(0,0,0,.65)",
+              }}
+            >
+              <div
+                className="absolute inset-x-0 top-0 h-[300px]"
+                style={{
+                  filter: lost ? "grayscale(1) brightness(.8)" : undefined,
+                }}
+              >
+                <CarPhoto src={view.car.photo} fallback={art} />
+              </div>
+              <span
+                className="absolute inset-x-0 top-[250px] h-[52px]"
+                style={{
+                  background:
+                    "linear-gradient(180deg,rgba(16,16,22,0),#101016)",
+                }}
+              />
+              <span
+                className="pointer-events-none absolute inset-0"
+                style={{ background: GLOSS }}
+              />
+              {won && (
+                <span
+                  className="rr-sheen pointer-events-none absolute left-0 top-0 h-full w-[70px] opacity-0"
+                  style={{
+                    background:
+                      "linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.12),rgba(255,255,255,0))",
+                  }}
+                />
+              )}
+              {view.car.rarity && (
+                <Badge className="left-3 top-3">{view.car.rarity}</Badge>
+              )}
+              <div className="absolute inset-x-0 bottom-0 flex flex-col gap-[11px] px-4 pb-4">
+                <div className="flex items-end justify-between gap-[10px]">
+                  <span className="text-[17px] leading-[1.15] text-foreground-bright">
+                    {stripPrefix(view.car.name)}
+                  </span>
+                  {view.car.assetId && (
+                    <span className="shrink-0 font-mono text-[10px] font-medium leading-none tracking-[.14em] text-accent">
+                      {cardNumber(view.car.assetId)}
+                    </span>
+                  )}
+                </div>
+                <span
+                  className="h-[.5px]"
+                  style={{
+                    background:
+                      "linear-gradient(90deg,rgba(233,231,226,.32),rgba(233,231,226,.04))",
+                  }}
+                />
+                {view.car.place && (
+                  <span className="font-mono text-[9px] font-medium leading-none tracking-[.2em] text-foreground/55">
+                    {view.car.place}
+                  </span>
+                )}
+              </div>
+            </div>
+            <svg
+              width="244"
+              height="390"
+              viewBox="0 0 244 390"
+              fill="none"
+              className="pointer-events-none absolute inset-0 overflow-visible"
+            >
+              <rect
+                className="rr-ring"
+                x=".4"
+                y=".4"
+                width="243.2"
+                height="389.2"
+                rx="20"
+                stroke={won ? "#C9B37E" : "rgba(242,241,238,.22)"}
+                strokeWidth="1"
+                pathLength={100}
+                strokeDasharray="100 100"
+              />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      {/* actions */}
+      <div
+        className="rl-rise relative flex flex-col items-center gap-[6px] px-5"
+        style={{ animationDelay: "1.6s" }}
+      >
+        <button
+          onClick={again}
+          className="flex h-[54px] w-full items-center justify-center gap-3 rounded-[15px] transition-[transform,background-color] hover:bg-[#191920] active:scale-[.97] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+          style={{
+            background: "#14141A",
+            border: `1px solid ${won ? "rgba(201,179,126,.6)" : "rgba(233,231,226,.22)"}`,
+            boxShadow:
+              "0 10px 30px rgba(0,0,0,.5), inset 0 .5px 0 rgba(255,255,255,.08)",
+          }}
+        >
+          <svg
+            width="17"
+            height="17"
+            viewBox="0 0 24 24"
+            fill="none"
+            className="block text-accent"
+            aria-hidden
+          >
+            <path
+              d="M5.5 21V4M5.5 5c2.1-1.3 4.3-1.3 6.5 0s4.4 1.3 6.5 0v8.6c-2.1 1.3-4.3 1.3-6.5 0s-4.4-1.3-6.5 0z"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <span className="pl-[.3em] font-mono text-[12px] font-semibold tracking-[.3em] text-foreground">
+            RACE AGAIN
+          </span>
+        </button>
+        <button
+          onClick={() => router.push("/garage")}
+          className="flex h-[44px] items-center justify-center px-4 pl-[calc(1rem+.3em)] font-mono text-[9.5px] font-medium tracking-[.3em] text-foreground/50 transition-colors hover:text-foreground focus-visible:outline-none"
+        >
+          BACK TO GARAGE
+        </button>
+      </div>
+    </div>
   );
+}
+
+// back into the race: straight to car select when a track is already chosen
+function useRaceAgain() {
+  const router = useRouter();
+  return () => {
+    let seated = false;
+    try {
+      seated = !!sessionStorage.getItem("rbola.race.track");
+    } catch {}
+    router.push(seated ? "/race/car" : "/race");
+  };
 }
 
 function Left({ view }: { view: RaceView }) {
@@ -834,28 +1045,18 @@ function HouseRace({ view }: { view: RaceView }) {
 // a quiet receipt link, an optional action, RACE AGAIN
 function Ending({
   headline,
-  hero,
   art,
   money,
   link,
   action,
 }: {
   headline: string;
-  hero?: string | null;
   art?: string;
   money?: React.ReactNode;
   link?: RaceView["payout"];
   action?: React.ReactNode;
 }) {
-  const router = useRouter();
-  const again = () => {
-    let seated = false;
-    try {
-      seated = !!sessionStorage.getItem("rbola.race.track");
-    } catch {}
-    router.push(seated ? "/race/car" : "/race");
-  };
-  const img = hero ?? art;
+  const again = useRaceAgain();
   return (
     <div
       className="relative flex min-h-dvh flex-col overflow-hidden"
@@ -864,17 +1065,15 @@ function Ending({
         paddingBottom: "calc(max(env(safe-area-inset-bottom), 16px) + 76px)",
       }}
     >
-      {img && (
+      {art && (
         <div className="rl-fade pointer-events-none absolute inset-x-0 top-0 h-[64%] overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={img}
+            src={art}
             alt=""
             className="h-full w-full object-cover"
             style={{
-              filter: hero
-                ? "brightness(.7) saturate(.85)"
-                : "brightness(.4) saturate(.7)",
+              filter: "brightness(.4) saturate(.7)",
             }}
           />
           <div
@@ -948,13 +1147,9 @@ function Ending({
 function Odometer({
   text,
   unit,
-  gold,
-  muted,
 }: {
   text: string;
   unit: string;
-  gold?: boolean;
-  muted?: boolean; // a loss: settled figure, no roll
 }) {
   const [on, setOn] = useState(false);
   useEffect(() => {
@@ -974,7 +1169,7 @@ function Odometer({
       <span
         className="flex text-[26px] font-light leading-none"
         style={{
-          color: gold ? "#C9B37E" : muted ? "rgba(242,241,238,.4)" : "#F2F1EE",
+          color: "#F2F1EE",
         }}
         aria-hidden
       >
@@ -991,7 +1186,7 @@ function Odometer({
               <span
                 className="absolute left-0 top-0 flex flex-col"
                 style={{
-                  transform: `translateY(${on || muted ? -n : 0}em)`,
+                  transform: `translateY(${on ? -n : 0}em)`,
                   transition: `transform 1.6s cubic-bezier(.16,1,.3,1) ${delay}s`,
                 }}
               >

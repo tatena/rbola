@@ -1,4 +1,4 @@
-/* race live screen — matchmaking v3 · race · result (2026-10-10).
+/* race live screen — matchmaking v3 · race (2026-10-10) · result (2026-10-12).
    Arrival-only motion: settled values are the resting state, so
    reduced-motion users see the final frame of each beat. */
 
@@ -29,6 +29,30 @@
   }
   .rl-blackout {
     animation: rl-blackout 0.5s ease 3.7s both;
+  }
+
+  /* race result (10-12) */
+  .rr-drift {
+    animation: rr-drift 24s ease-in-out infinite alternate;
+  }
+  .rr-in-up,
+  .rr-in-down {
+    animation: rr-in-up 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .rr-in-down {
+    animation-name: rr-in-down;
+  }
+  .rr-card-win {
+    animation: rr-card-win 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s both;
+  }
+  .rr-card-rest {
+    animation: rr-card-rest 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s both;
+  }
+  .rr-ring {
+    animation: rr-ring 2s cubic-bezier(0.65, 0, 0.35, 1) 0.9s both;
+  }
+  .rr-sheen {
+    animation: rr-sheen 1.6s cubic-bezier(0.45, 0, 0.2, 1) 2.4s both;
   }
 }
 
@@ -86,5 +110,55 @@
   }
   to {
     opacity: 1;
+  }
+}
+@keyframes rr-drift {
+  from {
+    transform: scale(1.06);
+  }
+  to {
+    transform: scale(1.16);
+  }
+}
+@keyframes rr-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+}
+@keyframes rr-in-down {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+@keyframes rr-card-win {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.94);
+  }
+}
+@keyframes rr-card-rest {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.96);
+  }
+}
+@keyframes rr-ring {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes rr-sheen {
+  from {
+    opacity: 1;
+    transform: translateX(-140px) skewX(-14deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(360px) skewX(-14deg);
   }
 }
