@@ -16,7 +16,7 @@ import path from "node:path";
 import { AuthError, authError } from "@/lib/auth";
 import { REGISTRY_PATH, STATE_DIR, writeJsonAtomic } from "@/lib/dataDir";
 import { createHmac } from "node:crypto";
-import { heliusRpc } from "@/lib/cluster";
+import { CLUSTER, heliusRpc } from "@/lib/cluster";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getEntry, type Rarity, type Spec } from "@/lib/catalog";
@@ -26,6 +26,7 @@ import {
   isTrack,
   payoutFor,
   resolve,
+  type Outcome,
   type Room,
   type Track,
 } from "@/lib/race";
@@ -37,6 +38,7 @@ import {
   signatureOf,
   submitEntryTx,
 } from "@/lib/raceWallet";
+import { Keypair, Transaction } from "@solana/web3.js";
 import houseCars from "../../data/house-cars.json";
 
 const LEDGER_PATH = path.join(STATE_DIR, "races.json");
@@ -210,6 +212,44 @@ function houseCar(l: Ledger, rarity: Rarity): Car {
   return { assetId: null, name: h.name, photo: null, rarity: h.rarity as Rarity, spec: h.spec };
 }
 
+// --- staging demo rival (devnet only) ---
+// For recording demo videos: DEMO_RIVAL_ASSET, a card owned by the
+// DEMO_RIVAL_KEYPAIR_PATH wallet, joins any paid search in its room a few
+// seconds after it starts. It goes through the normal entry path and pays a
+// real devnet entry, and it always loses its race. Both env vars are set only
+// on staging; on mainnet this is off no matter what the env says.
+const DEMO_RIVAL_DELAY_MS = 3_000;
+let demoKp: Keypair | null = null;
+function demoRival(): { kp: Keypair; owner: string; assetId: string } | null {
+  const assetId = process.env.DEMO_RIVAL_ASSET;
+  const keyPath = process.env.DEMO_RIVAL_KEYPAIR_PATH;
+  if (CLUSTER !== "devnet" || !assetId || !keyPath) return null;
+  demoKp ??= Keypair.fromSecretKey(Uint8Array.from(JSON.parse(fs.readFileSync(keyPath, "utf8"))));
+  return { kp: demoKp, owner: demoKp.publicKey.toBase58(), assetId };
+}
+
+function scheduleDemoRival(e: Entry) {
+  const rival = demoRival();
+  if (!rival || e.fee === 0 || e.owner === rival.owner) return;
+  setTimeout(() => {
+    demoRivalJoin(e.id, rival).catch((err) => console.error("demo rival", err));
+  }, DEMO_RIVAL_DELAY_MS);
+}
+
+async function demoRivalJoin(id: string, rival: NonNullable<ReturnType<typeof demoRival>>) {
+  const e = load().entries[id];
+  if (!e || e.status !== "searching") return; // a real driver got there first
+  const { entry, tx } = await createEntry({
+    owner: rival.owner,
+    assetId: rival.assetId,
+    track: e.track,
+    room: e.room,
+  });
+  const signed = Transaction.from(Buffer.from(tx!, "base64"));
+  signed.partialSign(rival.kp);
+  await confirmEntry(entry.id, signed.serialize().toString("base64"));
+}
+
 // --- flows ---
 
 function openFor(e: Entry, now: number) {
@@ -223,7 +263,16 @@ function openFor(e: Entry, now: number) {
 function startRace(l: Ledger, a: Entry, b: Entry | null) {
   const house = b ? null : houseCar(l, a.car.rarity ?? "common");
   const opp = b ? b.car : house!;
-  const r = resolve(a.car.spec, opp.spec, a.track);
+  let r = resolve(a.car.spec, opp.spec, a.track);
+  // staging demo rival always loses (scores swapped so the result reads true)
+  const demo = demoRival()?.owner;
+  const demoSide = demo && b ? (b.owner === demo ? "b" : a.owner === demo ? "a" : null) : null;
+  if (demoSide && r.winner !== (demoSide === "a" ? "b" : "a")) {
+    const winner: Outcome = demoSide === "a" ? "b" : "a";
+    const hi = Math.max(r.scoreA, r.scoreB);
+    const lo = Math.min(r.scoreA, r.scoreB) - (r.scoreA === r.scoreB ? 1 : 0);
+    r = { winner, scoreA: winner === "a" ? hi : lo, scoreB: winner === "a" ? lo : hi };
+  }
   const payouts: Payout[] = [];
   if (a.fee > 0) {
     const win = (to: string): Payout => ({ id: randomUUID(), to, lamports: payoutFor(a.fee), kind: "win", status: "pending" });
@@ -373,6 +422,7 @@ function markPaid(l: Ledger, e: Entry, sig: string) {
   e.status = "searching";
   e.searchingSince = Date.now();
   tryMatch(l, e);
+  if (e.status === "searching") scheduleDemoRival(e);
   return view(l, e);
 }
 
