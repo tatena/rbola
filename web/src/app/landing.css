@@ -613,9 +613,15 @@ html:has(.landing)::-webkit-scrollbar-thumb {
   font-size: clamp(18px, 2.2vw, 28px);
   color: var(--l-fg);
 }
-.l-track-name > span {
+.l-track-name {
+  column-gap: 0.6em;
+}
+.l-track-word {
+  display: inline-flex;
+  white-space: nowrap;
+}
+.l-track-word > span {
   display: inline-block;
-  white-space: pre;
 }
 .l-gauges {
   display: flex;
@@ -712,5 +718,15 @@ html:has(.landing)::-webkit-scrollbar-thumb {
 @media (max-width: 480px) {
   .l-socials {
     display: none;
+  }
+}
+
+/* phones: closed track columns are too narrow for a name across, so it
+   runs up the column instead */
+@media (max-width: 600px) {
+  .l-track:not(.on) .l-track-name {
+    flex-wrap: nowrap;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
   }
 }

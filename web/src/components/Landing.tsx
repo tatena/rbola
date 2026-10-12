@@ -322,15 +322,27 @@ function Tracks() {
               <span className="l-track-dim" />
               <span className="l-track-body">
                 <span className={`l-track-name ${marcellus.className}`}>
-                  {[...t.name].map((ch, k) => (
-                    <span
-                      key={on ? `${run}-${k}` : `s-${k}`}
-                      className={on ? "l-rise" : undefined}
-                      style={on ? { animationDelay: `${0.15 + k * 0.04}s` } : undefined}
-                    >
-                      {ch}
-                    </span>
-                  ))}
+                  {/* letters rise one by one; words stay whole so a name only
+                      ever wraps between words */}
+                  {t.name.split(" ").map((word, w, words) => {
+                    const base = words.slice(0, w).join(" ").length + (w ? 1 : 0);
+                    return (
+                      <span key={w} className="l-track-word">
+                        {[...word].map((ch, c) => {
+                          const k = base + c;
+                          return (
+                            <span
+                              key={on ? `${run}-${k}` : `s-${k}`}
+                              className={on ? "l-rise" : undefined}
+                              style={on ? { animationDelay: `${0.15 + k * 0.04}s` } : undefined}
+                            >
+                              {ch}
+                            </span>
+                          );
+                        })}
+                      </span>
+                    );
+                  })}
                 </span>
                 {on && (
                   <span className="l-gauges" key={run}>
