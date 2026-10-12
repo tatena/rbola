@@ -27,6 +27,7 @@ type ApiCard = {
   lat: number | null;
   lon: number | null;
   time: string | null;
+  stats: { speed: number; accel: number; handling: number } | null;
 };
 
 type CardVM = {
@@ -42,9 +43,15 @@ type CardVM = {
   mintFailed: boolean;
 };
 
-const STAT_LABELS = ["Speed", "Handling", "Condition"];
+const STAT_LABELS = ["Horsepower", "Top Speed", "Acceleration"];
 
-// deterministic placeholder stats per card until the real spec DB lands
+// catalog-derived race stats (same values car-select shows); the power-led
+// handling score reads as Horsepower
+function specStats(s: NonNullable<ApiCard["stats"]>): { label: string; value: number }[] {
+  return [s.handling, s.speed, s.accel].map((value, i) => ({ label: STAT_LABELS[i], value }));
+}
+
+// deterministic placeholder stats for cards with no catalog entry yet
 function statsFor(seed: string | null): { label: string; value: number }[] {
   return STAT_LABELS.map((label, i) => {
     if (!seed) return { label, value: 0 };
@@ -216,7 +223,7 @@ export default function GaragePage() {
           typeof c.lat === "number" && typeof c.lon === "number",
           c.assetId,
         ),
-        stats: statsFor(c.assetId),
+        stats: c.stats ? specStats(c.stats) : statsFor(c.assetId),
         sealing: false,
         mintFailed: false,
       });

@@ -42,12 +42,13 @@ const ROOM_NAMES = ["COMMON", "SCARCE", "RARE", "EPIC", "LEGENDARY"];
 const FEES = [0.001, 0.002, 0.005, 0.01, 0.02]; // = FEE_LAMPORTS in lib/race.ts
 
 // race stats are SPEED/ACCEL/HANDLING only (deterministic lock) — the same
-// catalog-derived values the race engine scores with
+// catalog-derived values the race engine scores with; the power-led
+// handling score reads as Horsepower
 function statsFor(s: ApiCard["stats"]): { label: string; value: number }[] {
   return [
-    { label: "Speed", value: s?.speed ?? 0 },
-    { label: "Accel", value: s?.accel ?? 0 },
-    { label: "Handling", value: s?.handling ?? 0 },
+    { label: "Horsepower", value: s?.handling ?? 0 },
+    { label: "Top Speed", value: s?.speed ?? 0 },
+    { label: "Acceleration", value: s?.accel ?? 0 },
   ];
 }
 
