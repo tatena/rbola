@@ -1,0 +1,175 @@
+/* race live screen — matchmaking v3 · race (2026-10-10) · result (2026-10-12).
+   Arrival-only motion: settled values are the resting state, so
+   reduced-motion users see the final frame of each beat. */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* matchmaking v3 */
+  .mm-drift {
+    animation: mm-drift 34s ease-in-out infinite alternate;
+  }
+  .mm-wheel {
+    transform-box: view-box;
+    transform-origin: 60px 60px;
+    animation: mm-wheel 7s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  }
+  .rl-breathe {
+    animation: rl-breathe 3.2s ease-in-out infinite;
+  }
+  .rl-fade {
+    animation: rl-fade 0.9s ease both;
+  }
+  .rl-rise {
+    animation: rl-rise 1s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+  .rl-push {
+    animation: rl-push 4.2s cubic-bezier(0.55, 0, 0.85, 0.35) both;
+  }
+  .rl-distance {
+    animation: rl-distance 3.6s cubic-bezier(0.55, 0, 0.85, 0.35) 0.3s both;
+  }
+  .rl-blackout {
+    animation: rl-blackout 0.5s ease 3.7s both;
+  }
+
+  /* race result (10-12) — arrives out of black, nothing snaps */
+  .rr-bg-in {
+    animation: rr-bg-in 1.8s cubic-bezier(0.25, 0.1, 0.25, 1) both;
+  }
+  .rr-drift {
+    animation: rr-drift 24s ease-in-out infinite alternate;
+  }
+  .rr-in-up,
+  .rr-in-down {
+    animation: rr-in-up 1.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .rr-in-down {
+    animation-name: rr-in-down;
+  }
+  .rr-card-win {
+    animation: rr-card-win 1.8s cubic-bezier(0.16, 1, 0.3, 1) 0.7s both;
+  }
+  .rr-card-rest {
+    animation: rr-card-rest 1.8s cubic-bezier(0.16, 1, 0.3, 1) 0.7s both;
+  }
+  .rr-ring {
+    animation: rr-ring 2.2s cubic-bezier(0.65, 0, 0.35, 1) 1.5s both;
+  }
+  .rr-sheen {
+    animation: rr-sheen 1.8s cubic-bezier(0.45, 0, 0.2, 1) 3.2s both;
+  }
+}
+
+@keyframes mm-drift {
+  from {
+    transform: scale(1.08) translate(0, 0);
+  }
+  to {
+    transform: scale(1.18) translate(-14px, -10px);
+  }
+}
+@keyframes mm-wheel {
+  to {
+    transform: rotate(720deg);
+  }
+}
+@keyframes rl-breathe {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes rl-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes rl-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+@keyframes rl-push {
+  from {
+    transform: scale(1);
+    filter: blur(0);
+  }
+  to {
+    transform: scale(1.55);
+    filter: blur(1.5px);
+  }
+}
+@keyframes rl-distance {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes rl-blackout {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes rr-bg-in {
+  from {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+}
+@keyframes rr-drift {
+  from {
+    transform: scale(1.06);
+  }
+  to {
+    transform: scale(1.16);
+  }
+}
+@keyframes rr-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+    filter: blur(6px);
+  }
+}
+@keyframes rr-in-down {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+    filter: blur(6px);
+  }
+}
+@keyframes rr-card-win {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.95);
+  }
+}
+@keyframes rr-card-rest {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.96);
+  }
+}
+@keyframes rr-ring {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes rr-sheen {
+  from {
+    opacity: 1;
+    transform: translateX(-140px) skewX(-14deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(360px) skewX(-14deg);
+  }
+}

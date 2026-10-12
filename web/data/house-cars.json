@@ -1,0 +1,10 @@
+[
+  {"id": "house-prius-xw30", "name": "Toyota Prius (XW30)", "rarity": "common", "spec": {"hp": 134, "zero_to_100": 10.4, "top_speed_kmh": 180, "weight_kg": 1380}},
+  {"id": "house-camry-xv70", "name": "Toyota Camry 2.5 (XV70)", "rarity": "common", "spec": {"hp": 203, "zero_to_100": 8.4, "top_speed_kmh": 210, "weight_kg": 1500}},
+  {"id": "house-golf-gti-mk7", "name": "Volkswagen Golf GTI (Mk7)", "rarity": "scarce", "spec": {"hp": 220, "zero_to_100": 6.5, "top_speed_kmh": 246, "weight_kg": 1350}},
+  {"id": "house-mx5-nd", "name": "Mazda MX-5 (ND)", "rarity": "scarce", "spec": {"hp": 184, "zero_to_100": 6.5, "top_speed_kmh": 219, "weight_kg": 1060}},
+  {"id": "house-m3-f80", "name": "BMW M3 (F80)", "rarity": "rare", "spec": {"hp": 431, "zero_to_100": 4.1, "top_speed_kmh": 250, "weight_kg": 1560}},
+  {"id": "house-911-gt3-992", "name": "Porsche 911 GT3 (992)", "rarity": "epic", "spec": {"hp": 510, "zero_to_100": 3.4, "top_speed_kmh": 318, "weight_kg": 1435}},
+  {"id": "house-300sl-w198", "name": "Mercedes-Benz 300 SL (W198)", "rarity": "epic", "spec": {"hp": 215, "zero_to_100": 9.3, "top_speed_kmh": 250, "weight_kg": 1295}},
+  {"id": "house-laferrari", "name": "Ferrari LaFerrari", "rarity": "legendary", "spec": {"hp": 963, "zero_to_100": 2.4, "top_speed_kmh": 350, "weight_kg": 1585}}
+]

@@ -1,0 +1,143 @@
+# Races (backend v0)
+
+Cards race for SOL. Two players who chose the same track and the same rarity
+room each pay the room's entry fee; the car whose real specs suit that ground
+better takes the pot, minus a 15% rake. This document describes how the race
+backend works. One build runs on devnet (staging.rbola.fun) or mainnet
+(app.rbola.fun), chosen by `NEXT_PUBLIC_SOLANA_CLUSTER` (`web/src/lib/cluster.ts`).
+
+## The game in one paragraph
+
+Entry order is **track → tier → car**. The track (MOUNTAIN PASS, HIGHWAY RUN,
+DRAG STRIP) weights three stats — speed, acceleration, handling — that are
+derived from the car's factory specs in the catalog. The tier is a **rarity
+room** (COMMON → LEGENDARY): only a card of that rarity can enter, and the fee
+rises with rarity. The opponent's car stays hidden until the match. Resolution
+is a pure function: no luck, no wear, no upgrades — the same two cards on the
+same track always produce the same result.
+
+| Track | Speed | Accel | Handling |
+|---|---|---|---|
+| MOUNTAIN PASS | 0.2 | 0.3 | 0.5 |
+| HIGHWAY RUN | 0.5 | 0.3 | 0.2 |
+| DRAG STRIP | 0.3 | 0.6 | 0.1 |
+
+Fee ladder (mainnet launch, founder call 10-11): 0.001 / 0.002 / 0.005 / 0.01 / 0.02 SOL.
+Paid rooms are player vs player only; the house car races only in free practice.
+
+## Architecture
+
+No smart contract. A server-side ledger tracks entries and races; every SOL
+movement is a real on-chain transfer to or from a dedicated **race wallet**
+(a server keypair, separate from the mint payer so pots never mix with gas).
+
+```
+car select ──ENTER──▶ POST /api/race/entry
+                        checks: card owned (Helius DAS), rarity = room,
+                        specs settled, card not already entered
+                        ◀── unsigned transfer: player → race wallet,
+                            fee + memo "rbola race entry <id>"
+player wallet (Privy) signs
+          ──signed tx──▶ POST /api/race/entry/:id/confirm
+                        signed message must equal the issued one byte-for-byte
+                        → broadcast → confirmed → queue (track, room)
+                        → FIFO match with another wallet, or wait
+client polls ───────▶ GET /api/race/entry/:id
+                        no rival after ~60s → full refund (no house in paid rooms)
+                        match → resolve → payout from the race wallet
+```
+
+The profile reads a player's record from `GET /api/race/stats?owner=<wallet>`
+(read-only): paid races, wins / losses / ties, win rate, current streak, SOL
+won and net, practice counted apart, and recent races for the activity list.
+
+- **Unforgeable entries.** The server builds the entry transfer and keeps its
+  message. The wallet only signs. On confirm, the server rejects any
+  transaction whose message differs from the issued one, so the amount,
+  recipient and memo can't be altered, and a signed entry can't be replayed
+  onto another entry.
+- **Payouts can't double-send.** Each payout is signed first and its signature
+  is written to the ledger before broadcast. A retry checks that signature
+  on-chain and only re-signs if it provably never landed.
+- **One lock.** Every ledger change runs through a single in-process queue, so
+  matching, cancelling and paying out can't interleave.
+
+## Money rules
+
+- Win: the winner receives `2 × fee × 85%` (the remaining 15% is the rake).
+- Exact tie: both entries are refunded in full, with no rake taken.
+- Cancel while searching: full refund.
+- No rival within 60s: the entry is refunded in full and the ending screen
+  offers the same car on the same track against a house car, free (practice).
+- Practice: free, instant, against a house car, any card. No SOL moves.
+
+## Verified on devnet (2026-10-10)
+
+Scripted end-to-end with two test wallets against the running app:
+
+- Player vs player: both entries confirmed on-chain, matched FIFO. Same car
+  on both sides gave an exact tie, so both were refunded in full.
+- House win: player paid 0.17 SOL (0.2 pot − 15%).
+- House loss: no payout, and the entry stayed in the race wallet.
+- Cancel while searching: full refund.
+- Rejected: wrong rarity room, someone else's card, a tampered amount, and a
+  replayed confirm.
+- Race wallet balance reconciles with the ledger.
+
+## Code
+
+- `web/src/lib/race.ts` — pure core: weights, fee ladder, rake, `score`, `resolve`.
+- `web/src/lib/raceLedger.ts` — ledger (`web/data/races.json`), lock, flows, payouts.
+- `web/src/lib/raceWallet.ts` — race wallet, entry-tx build/verify, payout send.
+- `web/src/lib/useRaceEntry.ts` — client: `enter()` creates → signs → confirms and resolves with the entry id; `useRaceWatch(id)` polls it and exposes cancel.
+- `web/src/app/(app)/race/live/[id]/` — post-commit screens keyed by entry id (survive reload): MATCHMAKING (Claude Design "Matchmaking v3": empty rival seat + your card, LEAVE = cancel/full refund; on match the rival card drops face-down, flips, driver name lands) → race beat (track footage from `web/public/races/<track>.mp4` where one exists — Mountain Pass = native 9:16 footage (founder upload 10-10, H.264 1080×1920 transcode; raw HEVC original in card-assets/track-art-originals/), full-bleed; Drag Strip = wider crop letterboxed so both cars stay in shot; with original sound: one shared <video> (`web/src/lib/raceFootage.ts`) is started-and-paused inside the ENTER tap so it may later autoplay with sound; without that tap (reload) it autoplays muted with a SOUND toggle; plays to the end; unplayable or stalled 8s → track-art beat → result; Highway Run = track-art beat until its footage lands) → RESULT (Claude Design "Race Result", 10-12: track name, YOU WON / YOU LOST letter by letter, your card with a ring drawn round it — gold and in colour on a win, grey on a loss, DEAD HEAT for a tie; RACE AGAIN + BACK TO GARAGE; no figures on screen, so the payout tx is not linked from it). Cancelled entries (left / no rival) keep the older resting frame with the refund line + Explorer link.
+- `web/data/house-cars.json` — house roster, rotated deterministically per room.
+
+## Known limits (v0)
+
+- Entry, confirm and cancel check the caller's Privy session
+  (`web/src/lib/auth.ts`): you can only enter with your own wallet and only
+  confirm or cancel your own entry. Logged out = practice only. Polling an
+  entry (`GET`, unguessable id) and `/api/race/stats` stay public — race
+  outcomes and payouts are public on-chain anyway.
+- Payouts are claimed per payout id, re-read under the lock, and their
+  signature replaced only compare-and-set, so concurrent settles (tick + both
+  players' polls) can never sign a second transfer. Each memo carries the
+  payout id. "Dropped" needs the finalized block height to be past
+  lastValidBlockHeight + 150, so a landed payout can't be resent. A confirm
+  interrupted by a restart is reconciled after 3 min. Matching requires equal
+  fees. Race routes are rate-limited per IP.
+- Entry memos carry an opaque HMAC tag, not the entry id, and
+  `GET /api/race/entry/:id` answers only the entry's own player (404 for
+  anyone else), so nobody can scout a waiting car before entering. The
+  confirm callbacks only act if the entry is still in the state they left it
+  ("confirming" with the same confirmingSince), so a confirm that outlives the
+  3-min stale window can't mark an entry paid twice. Every RPC call times out
+  (30s). Before treating a transfer as dropped, the full transaction is looked
+  up once more. A spec that scores NaN makes the race a tie (refund), never a
+  win by queue position. `/api/health` reports ledger readability, worker
+  heartbeat, the oldest pending payout and unsettled mints, for the monitor.
+- A background tick (`web/src/lib/raceWorker.ts`, started by
+  `web/src/instrumentation.ts`, every 10s) runs no-rival refunds, lost
+  confirmations and payouts even when nobody is polling. An entry whose
+  confirmation was lost keeps its signature (`attemptSig`) and is only
+  treated as unpaid once that signature provably never landed.
+- (Superseded 10-11) No background worker: house seating and payouts ran when the entry was
+  polled, confirmed or cancelled.
+- The ledger is a JSON file on one server process, which is fine for a demo.
+  A database is needed before multiple instances run.
+- (Superseded 10-11: paid rooms ship on mainnet as player vs player, founder
+  decision; legal review still open.) The house as counterparty is devnet-only. Paid races on mainnet wait for a
+  legal review.
+- The starter-SOL faucet (`web/src/lib/faucet.ts`) is devnet-only by code: it
+  checks the cluster's genesis hash before every drip and refuses anywhere
+  but devnet, whatever the env says. It also requires a logged-in session.
+
+## Mainnet keys (runbook, not done yet)
+
+- Generate fresh mint-payer and race keypairs for mainnet; never reuse the
+  devnet keys (`scripts/.keys/*`), and never create a faucet key there.
+- Keep only small working balances in the server (hot) wallets; sweep the
+  race wallet's surplus to a multisig on a schedule.
+- Keys live only on the server (`/srv/rbola/keys`, mode 600) — never in a
+  repo, never in Vercel env.

@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# RBOLA web app
 
-## Getting Started
+The Next.js PWA behind [rbola.fun](https://rbola.fun): camera capture, card minting, garage, and races. See the [repo README](../README.md) for what RBOLA is and the current status.
 
-First, run the development server:
+## Develop
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev     # dev server on http://localhost:3000
+npm run build   # production build
+npm run lint
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Camera and GPS need a real phone for honest testing. `npm run dev` works on desktop with a webcam; for wallet flows (Privy) serve over HTTPS, for example through a tunnel.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Create `web/.env.local` (gitignored):
 
-## Learn More
+```
+NEXT_PUBLIC_PRIVY_APP_ID=   # Privy app id (client-side, enables login)
+PRIVY_VERIFICATION_KEY=     # Privy ES256 public key, base64 body only (server checks sessions)
+PRIVY_APP_SECRET=           # Privy app secret (server looks up a user's wallets)
+NEXT_PUBLIC_SOLANA_CLUSTER= # devnet (default) | mainnet — the one network switch (src/lib/cluster.ts)
+NEXT_PUBLIC_SOLANA_RPC_URL= # optional browser RPC override; default = our /api/rpc proxy (no key in the bundle)
+MERKLE_TREE=                # card tree address (devnet falls back to the spike tree)
+APP_URL=                    # optional; origin baked into card metadata (default per cluster)
+HELIUS_API_KEY=             # Helius RPC + DAS (server only)
+PAYER_KEYPAIR_PATH=         # local path to the mint payer keypair
+CATCH_OWNER=                # fallback wallet for dev builds without Privy
+ANTHROPIC_API_KEY=          # catch verification (vision)
+VERIFY_SIGNING_SECRET=      # HMAC key for verdict tokens
+RACE_KEYPAIR_PATH=          # race wallet (pots), separate from the payer
+RACE_ALLOW_PROVISIONAL=     # 1 lets provisional cards into paid races (on for the mainnet launch, 10-11)
+FAUCET_KEYPAIR_PATH=        # devnet starter-SOL faucet (refuses on any other cluster)
+DATA_DIR=                   # prod: catches + state outside the app folder
+```
 
-To learn more about Next.js, take a look at the following resources:
+With Privy configured, routes that mint, drip SOL or touch a race entry require the player's session (`src/lib/auth.ts`) and fail closed if either Privy server secret is missing. Never put server vars in Vercel env: the app runs on its own server (`../deploy/`).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Layout
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+src/app/
+├── page.tsx        public landing (rbola.fun)
+├── (app)/          the mobile app: catch, upload, garage, race, me
+├── api/            server routes: catch (mint), garage (DAS read), photo
+└── spike/          proven spikes kept for reference: camera, wallet
+src/lib/            mint handoff store, wallet owner hook
+```
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Minting is server-side (Bubblegum v2 compressed NFTs via Helius, on the cluster set above); the payer keypair never reaches the browser. Photos and metadata live on the server disk (`DATA_DIR`, nightly backup) and are served from our own domain (`/api/photo`, `/api/meta`), so the on-chain uri can later move to permanent hosting without breaking cards. Public metadata rounds the catch location to ~1 km. Deploy: `deploy/deploy.sh <ip> <prod|staging>` ships committed code only.

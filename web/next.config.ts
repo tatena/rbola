@@ -6,6 +6,10 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["*.trycloudflare.com", "172.16.51.153"],
   // hide the floating dev-tools badge — noise during phone testing
   devIndicators: false,
+  // no framework banner; nothing uses next/image, so the optimizer (and its
+  // advisories) stays off
+  poweredByHeader: false,
+  images: { unoptimized: true },
   // The app is served from app.rbola.fun; this same build on Vercel
   // (rbola.fun) has no backend, so app routes there bounce across. Host-gated
   // (Next anchors the regex), so app.rbola.fun, localhost and tunnels are
@@ -15,7 +19,7 @@ const nextConfig: NextConfig = {
       // the app opens on the camera — the landing page lives on rbola.fun
       {
         source: "/",
-        has: [{ type: "host", value: "app\\.rbola\\.fun" }],
+        has: [{ type: "host", value: "(app|staging)\\.rbola\\.fun" }],
         destination: "/catch",
         permanent: false,
       },
