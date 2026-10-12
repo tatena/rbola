@@ -31,28 +31,31 @@
     animation: rl-blackout 0.5s ease 3.7s both;
   }
 
-  /* race result (10-12) */
+  /* race result (10-12) — arrives out of black, nothing snaps */
+  .rr-bg-in {
+    animation: rr-bg-in 1.8s cubic-bezier(0.25, 0.1, 0.25, 1) both;
+  }
   .rr-drift {
     animation: rr-drift 24s ease-in-out infinite alternate;
   }
   .rr-in-up,
   .rr-in-down {
-    animation: rr-in-up 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    animation: rr-in-up 1.6s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
   .rr-in-down {
     animation-name: rr-in-down;
   }
   .rr-card-win {
-    animation: rr-card-win 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s both;
+    animation: rr-card-win 1.8s cubic-bezier(0.16, 1, 0.3, 1) 0.7s both;
   }
   .rr-card-rest {
-    animation: rr-card-rest 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s both;
+    animation: rr-card-rest 1.8s cubic-bezier(0.16, 1, 0.3, 1) 0.7s both;
   }
   .rr-ring {
-    animation: rr-ring 2s cubic-bezier(0.65, 0, 0.35, 1) 0.9s both;
+    animation: rr-ring 2.2s cubic-bezier(0.65, 0, 0.35, 1) 1.5s both;
   }
   .rr-sheen {
-    animation: rr-sheen 1.6s cubic-bezier(0.45, 0, 0.2, 1) 2.4s both;
+    animation: rr-sheen 1.8s cubic-bezier(0.45, 0, 0.2, 1) 3.2s both;
   }
 }
 
@@ -112,6 +115,12 @@
     opacity: 1;
   }
 }
+@keyframes rr-bg-in {
+  from {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+}
 @keyframes rr-drift {
   from {
     transform: scale(1.06);
@@ -123,19 +132,21 @@
 @keyframes rr-in-up {
   from {
     opacity: 0;
-    transform: translateY(16px);
+    transform: translateY(14px);
+    filter: blur(6px);
   }
 }
 @keyframes rr-in-down {
   from {
     opacity: 0;
     transform: translateY(-10px);
+    filter: blur(6px);
   }
 }
 @keyframes rr-card-win {
   from {
     opacity: 0;
-    transform: translateY(30px) scale(0.94);
+    transform: translateY(24px) scale(0.95);
   }
 }
 @keyframes rr-card-rest {

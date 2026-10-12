@@ -634,7 +634,7 @@ function RaceFootage({
     let last = Date.now();
     const onTime = () => {
       last = Date.now();
-      if (v.duration && v.duration - v.currentTime < 0.6) setFading(true);
+      if (v.duration && v.duration - v.currentTime < 1.3) setFading(true);
     };
     const fail = () => setFailed(true);
     v.addEventListener("timeupdate", onTime);
@@ -694,7 +694,10 @@ function RaceFootage({
       )}
       <div
         className="pointer-events-none absolute inset-0 bg-[#0A0A0F]"
-        style={{ transition: "opacity .5s ease", opacity: fading ? 1 : 0 }}
+        style={{
+          transition: "opacity 1.2s cubic-bezier(.45,0,.55,1)",
+          opacity: fading ? 1 : 0,
+        }}
       />
     </div>
   );
@@ -778,8 +781,8 @@ function Result({ view }: { view: RaceView }) {
         paddingBottom: "calc(max(env(safe-area-inset-bottom), 16px) + 79px)",
       }}
     >
-      {/* the ground you raced on */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      {/* the ground you raced on — rises out of the race's black */}
+      <div className="rr-bg-in pointer-events-none absolute inset-0 overflow-hidden">
         <div
           className="rr-drift absolute inset-0"
           style={{
@@ -805,7 +808,7 @@ function Result({ view }: { view: RaceView }) {
       <div className="relative flex flex-col items-center gap-3 pt-[40px]">
         <span
           className={`${marcellus.className} rl-fade pl-[.32em] text-[13px] leading-none tracking-[.32em] text-foreground/60`}
-          style={{ animationDelay: ".1s", animationDuration: "1s" }}
+          style={{ animationDelay: ".5s", animationDuration: "1.4s" }}
         >
           {view.track}
         </span>
@@ -822,7 +825,7 @@ function Result({ view }: { view: RaceView }) {
               key={i}
               aria-hidden
               className={`inline-block whitespace-pre ${won ? "rr-in-up" : "rr-in-down"}`}
-              style={{ animationDelay: `${0.5 + i * 0.07}s` }}
+              style={{ animationDelay: `${1 + i * 0.08}s` }}
             >
               {ch}
             </span>
@@ -933,7 +936,7 @@ function Result({ view }: { view: RaceView }) {
       {/* actions */}
       <div
         className="rl-rise relative flex flex-col items-center gap-[6px] px-5"
-        style={{ animationDelay: "1.6s" }}
+        style={{ animationDelay: "2.4s", animationDuration: "1.4s" }}
       >
         <button
           onClick={again}
