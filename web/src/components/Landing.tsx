@@ -22,6 +22,8 @@ function Flow() {
   const [step, setStep] = useState(0);
   const [run, setRun] = useState(0);
   const [flash, setFlash] = useState(false);
+  const [inView, setInView] = useState(false);
+  const section = useRef<HTMLElement>(null);
   const video = useRef<HTMLVideoElement>(null);
   const flashT = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -42,11 +44,27 @@ function Flow() {
     if (next === 1) flashT.current = setTimeout(() => setFlash(false), 90);
   }, []);
 
+  // the loop restarts on SPOT each time it scrolls into view, and idles off-screen
+  useEffect(() => {
+    const el = section.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([e]) => {
+        setInView(e.isIntersecting);
+        if (e.isIntersecting) go(0);
+      },
+      { threshold: 0.5 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [go]);
+
   // each beat (auto or tapped) schedules the next one
   useEffect(() => {
+    if (!inView) return;
     const t = setTimeout(() => go((step + 1) % 3), STEP_MS);
     return () => clearTimeout(t);
-  }, [step, run, go]);
+  }, [step, run, go, inView]);
 
   useEffect(() => {
     const v = video.current;
@@ -68,7 +86,7 @@ function Flow() {
 
   const center = "translate(-50%,-50%)";
   return (
-    <section className="l-flow">
+    <section className="l-flow" ref={section}>
       <div className="l-stage">
         <div
           className="l-layer"
